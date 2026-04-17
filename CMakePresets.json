@@ -1,0 +1,36 @@
+{
+    "version": 5,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 23
+    },
+    "configurePresets": [
+        {
+            "name": "pico2w",
+            "displayName": "Pico 2 W (Makefiles)",
+            "generator": "Unix Makefiles",
+            "binaryDir": "${sourceDir}/build",
+            "environment": {
+                "LANG": "C.UTF-8",
+                "LC_ALL": "C.UTF-8",
+                "LANGUAGE": "en"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "PICO_BOARD": "pico2_w"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "pico2w",
+            "configurePreset": "pico2w",
+            "environment": {
+                "LANG": "C.UTF-8",
+                "LC_ALL": "C.UTF-8",
+                "LANGUAGE": "en"
+            }
+        }
+    ]
+}
