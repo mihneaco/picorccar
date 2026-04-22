@@ -28,7 +28,6 @@ public:
 
     UDPServer(const char* access_point_ssid,
               const char* access_point_password,
-              const char* server_ip,
               std::uint16_t port);
     ~UDPServer();
 
@@ -36,24 +35,23 @@ public:
     UDPServer& operator=(const UDPServer&) = delete;
 
     bool init();
-    bool take_latest_packet(Packet& packet);
-    void poll();
+    bool get_packet(Packet& packet);
 
 private:
     void receive_callback(udp_pcb* pcb, pbuf* packet, const ip_addr_t* remote_address, std::uint16_t remote_port);
-    void print_packet(const Packet& packet);
-    void print_ascii_payload(const Packet& packet);
-    void print_hex_payload(const Packet& packet);
     void cleanup();
 
     const char* m_access_point_ssid;
     const char* m_access_point_password;
-    const char* m_server_ip;
-    std::uint16_t m_port;
+
+    std::uint16_t m_server_port;
+
     udp_pcb* m_udp_pcb = nullptr;
     critical_section_t m_packet_lock{};
     Packet m_latest_packet{};
     std::uint32_t m_overwritten_packets = 0;
-    bool m_has_latest_packet = false;
+    // @details Use only with m_packet_lock locked
+    bool m_has_packet = false;
+    bool m_initialized = false;
     bool m_cyw43_initialized = false;
 };

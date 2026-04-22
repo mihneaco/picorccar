@@ -3,9 +3,11 @@
 #include "udp_server.h"
 
 // Pico SDK
+#include "lwip/ip_addr.h"
 #include "pico/stdlib.h"
-#include "pico/cyw43_arch.h"
 
+namespace
+{
 constexpr uint16_t BRINGUP_TEST_SPEED = MotorDriver::MAX_SPEED;
 constexpr uint32_t BRINGUP_RUN_MS = 750;
 constexpr uint32_t BRINGUP_PAUSE_MS = 750;
@@ -25,62 +27,37 @@ constexpr MotorDriver::DriverPins MOTOR_DRIVER_PINS{
     STBY
 };
 
-static void test_bringup()
+constexpr char ACCESS_POINT_SSID[] = "PicoRCCar";
+// TB6612FNG bring-up should not run from an open access point.
+constexpr char ACCESS_POINT_PSK[] = "12345678";
+constexpr uint16_t UDP_SERVER_PORT = 12345;
+
+constexpr uint32_t MAIN_LOOP_SLEEP_MS = 10;
+
+void print_udp_packet(const UDPServer::Packet& packet)
 {
-    LOG_INFO();
+    char remote_address[IPADDR_STRLEN_MAX]{};
+    ipaddr_ntoa_r(&packet.remote_address, remote_address, sizeof(remote_address));
 
-    MotorDriver motor_driver(MOTOR_DRIVER_PINS);
-    motor_driver.init();
-
-    // Pico 2 W exposes the onboard LED through the CYW43 chip; initialize the
-    // CYW43 architecture once at the visible startup call site.
-    const int cyw43_init_result = cyw43_arch_init();
-    if (cyw43_init_result != 0)
+    if (packet.truncated)
     {
-        LOG_CRITICAL("CYW43 init failed: %d", cyw43_init_result);
-        while (true)
-            tight_loop_contents();
+        LOG_TRACE("UDP packet from %s:%u len=%u copied=%u overwritten=%lu",
+                  remote_address,
+                  static_cast<unsigned>(packet.remote_port),
+                  static_cast<unsigned>(packet.total_length),
+                  static_cast<unsigned>(packet.copied_length),
+                  static_cast<unsigned long>(packet.overwritten_packets));
     }
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
-
-    using Direction = MotorDriver::Direction;
-
-    while (true)
+    else
     {
-        // Motor A
-        motor_driver.set_motor_a(Direction::Forward, BRINGUP_TEST_SPEED);
-        motor_driver.set_motor_b(Direction::Stop, 0);
-        sleep_ms(BRINGUP_RUN_MS);
-
-        // Stop
-        motor_driver.stop_all();
-        sleep_ms(BRINGUP_PAUSE_MS);
-
-        // Motor B
-        motor_driver.set_motor_a(Direction::Stop, 0);
-        motor_driver.set_motor_b(Direction::Forward, BRINGUP_TEST_SPEED);
-        sleep_ms(BRINGUP_RUN_MS);
-
-        // Stop Both
-        motor_driver.stop_all();
-        sleep_ms(BRINGUP_PAUSE_MS);
-
-        // Together
-        motor_driver.set_motor_a(Direction::Forward, BRINGUP_TEST_SPEED);
-        motor_driver.set_motor_b(Direction::Forward, BRINGUP_TEST_SPEED);
-        sleep_ms(BRINGUP_RUN_MS);
-
-        motor_driver.stop_all();
-        sleep_ms(BRINGUP_PAUSE_MS * 2);
+        LOG_TRACE("UDP packet from %s:%u len=%u overwritten=%lu",
+                  remote_address,
+                  static_cast<unsigned>(packet.remote_port),
+                  static_cast<unsigned>(packet.total_length),
+                  static_cast<unsigned long>(packet.overwritten_packets));
     }
 }
-
-static constexpr char ACCESS_POINT_SSID[] = "PicoRCCar";
-// Empty password keeps the access point open, so any Wi-Fi client can attach.
-static constexpr char ACCESS_POINT_PSK[] = "";
-static constexpr char UDP_SERVER_IP[] = "192.168.4.1";
-static constexpr uint16_t UDP_SERVER_PORT = 12345;
-static constexpr uint32_t MAIN_LOOP_SLEEP_MS = 10;
+}
 
 int main()
 {
@@ -92,7 +69,7 @@ int main()
     motor_driver.init();
     motor_driver.stop_all();
 
-    UDPServer udp_server(ACCESS_POINT_SSID, ACCESS_POINT_PSK, UDP_SERVER_IP, UDP_SERVER_PORT);
+    UDPServer udp_server(ACCESS_POINT_SSID, ACCESS_POINT_PSK, UDP_SERVER_PORT);
     if (!udp_server.init())
     {
         LOG_CRITICAL("UDP server initialization failed");
@@ -102,12 +79,15 @@ int main()
     }
 
     LOG_INFO("main loop started");
+    UDPServer::Packet latest_packet{};
     while (true)
     {
-        udp_server.poll();
+        if (udp_server.get_packet(latest_packet))
+            print_udp_packet(latest_packet);
 
-        // Future motor-command decoding, command timeout, and failsafe updates
-        // should run here rather than from the lwIP receive callback.
+        /*
+            @todo - Add motor-command decoding, command timeout, and failsafe updates.
+        */
 
         sleep_ms(MAIN_LOOP_SLEEP_MS);
     }
