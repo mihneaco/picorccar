@@ -28,33 +28,32 @@ constexpr MotorDriver::DriverPins MOTOR_DRIVER_PINS{
 };
 
 constexpr char ACCESS_POINT_SSID[] = "PicoRCCar";
-// TB6612FNG bring-up should not run from an open access point.
 constexpr char ACCESS_POINT_PSK[] = "12345678";
 constexpr uint16_t UDP_SERVER_PORT = 12345;
 
 constexpr uint32_t MAIN_LOOP_SLEEP_MS = 10;
 
-void print_udp_packet(const UDPServer::Packet& packet)
+void print_udp_packet(const UDPServer::Packet& p_packet)
 {
     char remote_address[IPADDR_STRLEN_MAX]{};
-    ipaddr_ntoa_r(&packet.remote_address, remote_address, sizeof(remote_address));
+    ipaddr_ntoa_r(&p_packet.remote_address, remote_address, sizeof(remote_address));
 
-    if (packet.truncated)
+    if (p_packet.truncated)
     {
         LOG_TRACE("UDP packet from %s:%u len=%u copied=%u overwritten=%lu",
                   remote_address,
-                  static_cast<unsigned>(packet.remote_port),
-                  static_cast<unsigned>(packet.total_length),
-                  static_cast<unsigned>(packet.copied_length),
-                  static_cast<unsigned long>(packet.overwritten_packets));
+                  static_cast<unsigned>(p_packet.remote_port),
+                  static_cast<unsigned>(p_packet.total_length),
+                  static_cast<unsigned>(p_packet.copied_length),
+                  static_cast<unsigned long>(p_packet.overwritten_packets));
     }
     else
     {
         LOG_TRACE("UDP packet from %s:%u len=%u overwritten=%lu",
                   remote_address,
-                  static_cast<unsigned>(packet.remote_port),
-                  static_cast<unsigned>(packet.total_length),
-                  static_cast<unsigned long>(packet.overwritten_packets));
+                  static_cast<unsigned>(p_packet.remote_port),
+                  static_cast<unsigned>(p_packet.total_length),
+                  static_cast<unsigned long>(p_packet.overwritten_packets));
     }
 }
 }
@@ -79,14 +78,15 @@ int main()
     }
 
     LOG_INFO("main loop started");
-    UDPServer::Packet latest_packet{};
     while (true)
     {
+        UDPServer::Packet latest_packet{};
+
         if (udp_server.get_packet(latest_packet))
             print_udp_packet(latest_packet);
 
         /*
-            @todo - Add motor-command decoding, command timeout, and failsafe updates.
+            @todo - Add motor-command decoding, command timeout and failsafe updates.
         */
 
         sleep_ms(MAIN_LOOP_SLEEP_MS);

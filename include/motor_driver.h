@@ -34,11 +34,11 @@ public:
 
     static constexpr std::uint16_t MAX_SPEED = 1000;
 
-    explicit MotorDriver(const DriverPins pins);
+    explicit MotorDriver(const DriverPins p_pins);
 
     void init();
-    void set_motor_a(const Direction direction, const std::uint16_t speed);
-    void set_motor_b(const Direction direction, const std::uint16_t speed);
+    void set_motor_a(const Direction p_direction, const std::uint16_t p_speed);
+    void set_motor_b(const Direction p_direction, const std::uint16_t p_speed);
     void stop_all();
 
 private:
@@ -57,13 +57,16 @@ private:
     static constexpr std::uint32_t DIRECTION_CHANGE_DEADTIME_US = 100;
 
     void init_pins();
-    void init_control_pin(const Pin pin);
-    void init_pwm_pin(const Pin pwm_pin);
-    void set_pwm_duty(const Pin pwm_pin, const std::uint16_t duty);
-    bool is_known_pwm_pin(const Pin pwm_pin) const;
-    static bool is_direction_reversal(const Direction current, const Direction next);
+    void init_control_pin(const Pin p_pin);
+    void init_pwm_pin(const Pin p_pwm_pin);
+    void set_pwm_duty(const Pin p_pwm_pin, const std::uint16_t p_duty);
+    bool is_known_pwm_pin(const Pin p_pwm_pin) const;
+    static bool is_direction_reversal(const Direction p_current, const Direction p_next);
 
-    void set_motor(const MotorPins& pins, MotorState& motor, const Direction direction, const std::uint16_t speed);
+    void set_motor(const MotorPins& p_pins,
+                   MotorState& p_motor,
+                   const Direction p_direction,
+                   const std::uint16_t p_speed);
 
     const DriverPins m_pins;
     MotorState m_motor_a;

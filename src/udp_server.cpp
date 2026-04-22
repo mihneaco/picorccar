@@ -16,12 +16,12 @@ namespace
 constexpr std::uint32_t AP_AUTH_FOR_PASSWORD = CYW43_AUTH_WPA2_AES_PSK;
 }
 
-UDPServer::UDPServer(const char* const access_point_ssid,
-                     const char* const access_point_password,
-                     const std::uint16_t port)
-    : m_access_point_ssid(access_point_ssid),
-      m_access_point_password(access_point_password),
-      m_server_port(port)
+UDPServer::UDPServer(const char* const p_access_point_ssid,
+                     const char* const p_access_point_password,
+                     const std::uint16_t p_port)
+    : m_access_point_ssid(p_access_point_ssid),
+      m_access_point_password(p_access_point_password),
+      m_server_port(p_port)
 {
     critical_section_init(&m_packet_lock);
 }
@@ -84,17 +84,17 @@ bool UDPServer::init()
         }
 
         udp_recv(m_udp_pcb,
-                [](void* const arg,
-                    udp_pcb* const pcb,
-                    pbuf* const packet,
-                    const ip_addr_t* const remote_address,
-                    const u16_t remote_port)
+                [](void* const p_arg,
+                    udp_pcb* const p_pcb,
+                    pbuf* const p_packet,
+                    const ip_addr_t* const p_remote_address,
+                    const u16_t p_remote_port)
                 {
-                    auto* const server = static_cast<UDPServer*>(arg);
+                    auto* const server = static_cast<UDPServer*>(p_arg);
                     if (server != nullptr)
-                        server->receive_callback(pcb, packet, remote_address, remote_port);
-                    else if (packet != nullptr)
-                        pbuf_free(packet);
+                        server->receive_callback(p_pcb, p_packet, p_remote_address, p_remote_port);
+                    else if (p_packet != nullptr)
+                        pbuf_free(p_packet);
                 },
                 this);
     }
@@ -105,43 +105,43 @@ bool UDPServer::init()
     return true;
 }
 
-void UDPServer::receive_callback(udp_pcb* const pcb,
-                                 pbuf* const packet,
-                                 const ip_addr_t* const remote_address,
-                                 const std::uint16_t remote_port)
+void UDPServer::receive_callback(udp_pcb* const p_pcb,
+                                 pbuf* const p_packet,
+                                 const ip_addr_t* const p_remote_address,
+                                 const std::uint16_t p_remote_port)
 {
-    (void)pcb;
+    (void)p_pcb;
 
-    if (packet == nullptr)
+    if (p_packet == nullptr)
         return;
 
     Packet latest_packet{};
-    if (remote_address != nullptr)
-        latest_packet.remote_address = *remote_address;
-    latest_packet.remote_port = remote_port;
+    if (p_remote_address != nullptr)
+        latest_packet.remote_address = *p_remote_address;
+    latest_packet.remote_port = p_remote_port;
     latest_packet.received_ms = to_ms_since_boot(get_absolute_time());
-    latest_packet.total_length = packet->tot_len;
+    latest_packet.total_length = p_packet->tot_len;
     latest_packet.copied_length = static_cast<std::uint16_t>(
-        std::min<std::size_t>(packet->tot_len, MAX_PACKET_BYTES));
+        std::min<std::size_t>(p_packet->tot_len, MAX_PACKET_BYTES));
     latest_packet.truncated = latest_packet.copied_length < latest_packet.total_length;
 
     if (latest_packet.copied_length > 0)
-        pbuf_copy_partial(packet, latest_packet.payload, latest_packet.copied_length, 0);
+        pbuf_copy_partial(p_packet, latest_packet.payload, latest_packet.copied_length, 0);
 
-    pbuf_free(packet);
+    pbuf_free(p_packet);
 
     critical_section_enter_blocking(&m_packet_lock);
     {
         if (m_has_packet)
             ++m_overwritten_packets;
         latest_packet.overwritten_packets = m_overwritten_packets;
-        m_latest_packet = latest_packet;
+        m_packet = latest_packet;
         m_has_packet = true;
     }
     critical_section_exit(&m_packet_lock);
 }
 
-bool UDPServer::get_packet(Packet& packet)
+bool UDPServer::get_packet(Packet& p_packet)
 {
     bool has_packet = false;
 
@@ -150,7 +150,7 @@ bool UDPServer::get_packet(Packet& packet)
         has_packet = m_has_packet;
         if (has_packet)
         {
-            packet = m_latest_packet;
+            p_packet = m_packet;
             m_has_packet = false;
             m_overwritten_packets = 0;
         }

@@ -26,19 +26,22 @@ public:
         bool truncated = false;
     };
 
-    UDPServer(const char* access_point_ssid,
-              const char* access_point_password,
-              std::uint16_t port);
+    UDPServer(const char* p_access_point_ssid,
+              const char* p_access_point_password,
+              std::uint16_t p_port);
     ~UDPServer();
 
-    UDPServer(const UDPServer&) = delete;
-    UDPServer& operator=(const UDPServer&) = delete;
+    UDPServer(const UDPServer& p_other) = delete;
+    UDPServer& operator=(const UDPServer& p_other) = delete;
 
     bool init();
-    bool get_packet(Packet& packet);
+    bool get_packet(Packet& p_packet);
 
 private:
-    void receive_callback(udp_pcb* pcb, pbuf* packet, const ip_addr_t* remote_address, std::uint16_t remote_port);
+    void receive_callback(udp_pcb* p_pcb,
+                          pbuf* p_packet,
+                          const ip_addr_t* p_remote_address,
+                          std::uint16_t p_remote_port);
     void cleanup();
 
     const char* m_access_point_ssid;
@@ -48,7 +51,7 @@ private:
 
     udp_pcb* m_udp_pcb = nullptr;
     critical_section_t m_packet_lock{};
-    Packet m_latest_packet{};
+    Packet m_packet{};
     std::uint32_t m_overwritten_packets = 0;
     // @details Use only with m_packet_lock locked
     bool m_has_packet = false;

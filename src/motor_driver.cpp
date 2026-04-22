@@ -8,9 +8,9 @@
 
 namespace
 {
-constexpr const char* direction_name(const MotorDriver::Direction direction)
+constexpr const char* direction_name(const MotorDriver::Direction p_direction)
 {
-    switch (direction)
+    switch (p_direction)
     {
     case MotorDriver::Direction::Stop:
         return "Stop";
@@ -26,7 +26,7 @@ constexpr const char* direction_name(const MotorDriver::Direction direction)
 }
 }
 
-MotorDriver::MotorDriver(const DriverPins pins) : m_pins(pins)
+MotorDriver::MotorDriver(const DriverPins p_pins) : m_pins(p_pins)
 {
     LOG_DEBUG();
     gpio_put(m_pins.m_standby, 0);
@@ -42,18 +42,18 @@ void MotorDriver::init()
     gpio_put(m_pins.m_standby, 1);
 }
 
-void MotorDriver::set_motor_a(const Direction direction, const std::uint16_t speed)
+void MotorDriver::set_motor_a(const Direction p_direction, const std::uint16_t p_speed)
 {
     LOG_DEBUG();
 
-    set_motor(m_pins.m_motor_a, m_motor_a, direction, speed);
+    set_motor(m_pins.m_motor_a, m_motor_a, p_direction, p_speed);
 }
 
-void MotorDriver::set_motor_b(const Direction direction, const std::uint16_t speed)
+void MotorDriver::set_motor_b(const Direction p_direction, const std::uint16_t p_speed)
 {
     LOG_DEBUG();
 
-    set_motor(m_pins.m_motor_b, m_motor_b, direction, speed);
+    set_motor(m_pins.m_motor_b, m_motor_b, p_direction, p_speed);
 }
 
 void MotorDriver::stop_all()
@@ -78,20 +78,20 @@ void MotorDriver::init_pins()
     init_pwm_pin(m_pins.m_motor_b.m_pwm);
 }
 
-void MotorDriver::init_control_pin(const Pin pin)
+void MotorDriver::init_control_pin(const Pin p_pin)
 {
     LOG_DEBUG();
 
-    gpio_init(pin);
-    gpio_set_dir(pin, GPIO_OUT);
+    gpio_init(p_pin);
+    gpio_set_dir(p_pin, GPIO_OUT);
 }
 
-void MotorDriver::init_pwm_pin(const Pin pwm_pin)
+void MotorDriver::init_pwm_pin(const Pin p_pwm_pin)
 {
     LOG_DEBUG();
 
-    gpio_set_function(pwm_pin, GPIO_FUNC_PWM);
-    uint slice = pwm_gpio_to_slice_num(pwm_pin);
+    gpio_set_function(p_pwm_pin, GPIO_FUNC_PWM);
+    uint slice = pwm_gpio_to_slice_num(p_pwm_pin);
 
     pwm_config config = pwm_get_default_config();
     float clkdiv = clock_get_hz(clk_sys) / (PWM_TARGET_HZ * (PWM_WRAP + 1.f));
@@ -103,82 +103,85 @@ void MotorDriver::init_pwm_pin(const Pin pwm_pin)
     pwm_config_set_clkdiv(&config, clkdiv);
     pwm_config_set_wrap(&config, PWM_WRAP);
     pwm_init(slice, &config, true);
-    pwm_set_gpio_level(pwm_pin, 0);
+    pwm_set_gpio_level(p_pwm_pin, 0);
 }
 
-void MotorDriver::set_pwm_duty(const Pin pwm_pin, const std::uint16_t duty)
+void MotorDriver::set_pwm_duty(const Pin p_pwm_pin, const std::uint16_t p_duty)
 {
     LOG_TRACE();
 
-    assert(is_known_pwm_pin(pwm_pin));
+    assert(is_known_pwm_pin(p_pwm_pin));
 
-    const std::uint16_t clamped_duty = duty > PWM_FULL_DUTY ? PWM_FULL_DUTY : duty;
-    pwm_set_gpio_level(pwm_pin, clamped_duty);
+    const std::uint16_t clamped_duty = p_duty > PWM_FULL_DUTY ? PWM_FULL_DUTY : p_duty;
+    pwm_set_gpio_level(p_pwm_pin, clamped_duty);
 }
 
-bool MotorDriver::is_known_pwm_pin(const Pin pwm_pin) const
+bool MotorDriver::is_known_pwm_pin(const Pin p_pwm_pin) const
 {
-    return pwm_pin == m_pins.m_motor_a.m_pwm || pwm_pin == m_pins.m_motor_b.m_pwm;
+    return p_pwm_pin == m_pins.m_motor_a.m_pwm || p_pwm_pin == m_pins.m_motor_b.m_pwm;
 }
 
-bool MotorDriver::is_direction_reversal(const Direction current, const Direction next)
+bool MotorDriver::is_direction_reversal(const Direction p_current, const Direction p_next)
 {
-    return (current == Direction::Forward && next == Direction::Reverse) ||
-           (current == Direction::Reverse && next == Direction::Forward);
+    return (p_current == Direction::Forward && p_next == Direction::Reverse) ||
+           (p_current == Direction::Reverse && p_next == Direction::Forward);
 }
 
-void MotorDriver::set_motor(const MotorPins& pins, MotorState& motor, const Direction direction, const std::uint16_t speed)
+void MotorDriver::set_motor(const MotorPins& p_pins,
+                            MotorState& p_motor,
+                            const Direction p_direction,
+                            const std::uint16_t p_speed)
 {
     LOG_DEBUG("pins=%u/%u/%u state=%s/%u request=%s/%u",
-              static_cast<uint>(pins.m_in1),
-              static_cast<uint>(pins.m_in2),
-              static_cast<uint>(pins.m_pwm),
-              direction_name(motor.m_direction),
-              static_cast<uint>(motor.m_speed),
-              direction_name(direction),
-              static_cast<uint>(speed));
+              static_cast<uint>(p_pins.m_in1),
+              static_cast<uint>(p_pins.m_in2),
+              static_cast<uint>(p_pins.m_pwm),
+              direction_name(p_motor.m_direction),
+              static_cast<uint>(p_motor.m_speed),
+              direction_name(p_direction),
+              static_cast<uint>(p_speed));
 
-    if (speed > PWM_WRAP)
+    if (p_speed > PWM_WRAP)
         LOG_WARNING("speed > PWM_WRAP, defaulting to PWM_WRAP");
-    const std::uint16_t clamped_speed = speed > PWM_WRAP ? PWM_WRAP : speed;
+    const std::uint16_t clamped_speed = p_speed > PWM_WRAP ? PWM_WRAP : p_speed;
 
     // Drop PWM before changing direction to avoid slamming directly through a reversal.
-    if (direction != motor.m_direction)
+    if (p_direction != p_motor.m_direction)
     {
-        set_pwm_duty(pins.m_pwm, 0);
-        if (is_direction_reversal(motor.m_direction, direction))
+        set_pwm_duty(p_pins.m_pwm, 0);
+        if (is_direction_reversal(p_motor.m_direction, p_direction))
             sleep_us(DIRECTION_CHANGE_DEADTIME_US);
     }
 
-    switch (direction)
+    switch (p_direction)
     {
     case Direction::Forward:
-        gpio_put(pins.m_in1, 1);
-        gpio_put(pins.m_in2, 0);
-        set_pwm_duty(pins.m_pwm, clamped_speed);
+        gpio_put(p_pins.m_in1, 1);
+        gpio_put(p_pins.m_in2, 0);
+        set_pwm_duty(p_pins.m_pwm, clamped_speed);
         break;
 
     case Direction::Reverse:
-        gpio_put(pins.m_in1, 0);
-        gpio_put(pins.m_in2, 1);
-        set_pwm_duty(pins.m_pwm, clamped_speed);
+        gpio_put(p_pins.m_in1, 0);
+        gpio_put(p_pins.m_in2, 1);
+        set_pwm_duty(p_pins.m_pwm, clamped_speed);
         break;
 
     case Direction::Brake:
-        gpio_put(pins.m_in1, 1);
-        gpio_put(pins.m_in2, 1);
-        set_pwm_duty(pins.m_pwm, PWM_FULL_DUTY);
+        gpio_put(p_pins.m_in1, 1);
+        gpio_put(p_pins.m_in2, 1);
+        set_pwm_duty(p_pins.m_pwm, PWM_FULL_DUTY);
         break;
 
     case Direction::Stop:
     default:
         // TB6612 stop/coast mode is IN1=L, IN2=L, PWM=H with STBY=H.
-        gpio_put(pins.m_in1, 0);
-        gpio_put(pins.m_in2, 0);
-        set_pwm_duty(pins.m_pwm, PWM_FULL_DUTY);
+        gpio_put(p_pins.m_in1, 0);
+        gpio_put(p_pins.m_in2, 0);
+        set_pwm_duty(p_pins.m_pwm, PWM_FULL_DUTY);
         break;
     }
 
-    motor.m_direction = direction;
-    motor.m_speed = clamped_speed;
+    p_motor.m_direction = p_direction;
+    p_motor.m_speed = clamped_speed;
 }

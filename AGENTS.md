@@ -104,6 +104,9 @@ Primary priorities:
   - command / comms / Wi-Fi layer
 - Add comments for non-obvious hardware behavior, timing assumptions, and safety decisions.
 - Use named constants for pins, timing values and other constants. Avoid magic numbers.
+- Prefix class and struct data members with `m_`.
+- Prefix function parameters with `p_`.
+- Do not prefix local variables; use descriptive names.
 
 ## Debugging priorities
 When debugging, check these common failure paths first:
