@@ -14,7 +14,7 @@ endif()
 
 include(${PICO_SDK_PATH}/pico_sdk_init.cmake)
 
-project(picoscaffold-fw C CXX)
+project(picorccar C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
 
@@ -24,11 +24,13 @@ add_executable(${PROJECT_NAME}
     third_party/ulog/ulog.c
     src/motor_driver.cpp
     src/main.cpp
+    src/udp_server.cpp
 )
 
 target_compile_definitions(${PROJECT_NAME}
     PRIVATE
         ULOG_ENABLED
+        ULOG_MAX_MESSAGE_LENGTH=1024
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -39,7 +41,7 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     pico_stdlib
-    pico_cyw43_arch_none
+    pico_cyw43_arch_lwip_threadsafe_background
     hardware_pwm
     hardware_gpio
 )

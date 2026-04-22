@@ -1,5 +1,6 @@
 #include "pico_logger.h"
 #include "motor_driver.h"
+#include "udp_server.h"
 
 // Pico SDK
 #include "pico/stdlib.h"
@@ -74,13 +75,42 @@ static void test_bringup()
     }
 }
 
+static constexpr char ACCESS_POINT_SSID[] = "PicoRCCar";
+// Empty password keeps the access point open, so any Wi-Fi client can attach.
+static constexpr char ACCESS_POINT_PSK[] = "";
+static constexpr char UDP_SERVER_IP[] = "192.168.4.1";
+static constexpr uint16_t UDP_SERVER_PORT = 12345;
+static constexpr uint32_t MAIN_LOOP_SLEEP_MS = 10;
+
 int main()
 {
     stdio_init_all();
-    logger::init(ULOG_DEBUG_LEVEL);
+    logger::init(ULOG_TRACE_LEVEL);
     LOG_INFO();
 
-    test_bringup();
+    MotorDriver motor_driver(MOTOR_DRIVER_PINS);
+    motor_driver.init();
+    motor_driver.stop_all();
+
+    UDPServer udp_server(ACCESS_POINT_SSID, ACCESS_POINT_PSK, UDP_SERVER_IP, UDP_SERVER_PORT);
+    if (!udp_server.init())
+    {
+        LOG_CRITICAL("UDP server initialization failed");
+        motor_driver.stop_all();
+        while (true)
+            tight_loop_contents();
+    }
+
+    LOG_INFO("main loop started");
+    while (true)
+    {
+        udp_server.poll();
+
+        // Future motor-command decoding, command timeout, and failsafe updates
+        // should run here rather than from the lwIP receive callback.
+
+        sleep_ms(MAIN_LOOP_SLEEP_MS);
+    }
 
     return 0;
 }
