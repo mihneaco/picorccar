@@ -24,7 +24,7 @@ add_executable(${PROJECT_NAME}
     third_party/ulog/ulog.c
     src/motor_driver.cpp
     src/main.cpp
-    src/udp_server.cpp
+    src/remote_link.cpp
 )
 
 target_compile_definitions(${PROJECT_NAME}

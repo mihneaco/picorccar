@@ -1,4 +1,4 @@
-#include "udp_server.h"
+#include "remote_link.h"
 
 #include "pico_logger.h"
 
@@ -16,9 +16,9 @@ namespace
 constexpr std::uint32_t AP_AUTH_FOR_PASSWORD = CYW43_AUTH_WPA2_AES_PSK;
 }
 
-UDPServer::UDPServer(const char* const p_access_point_ssid,
-                     const char* const p_access_point_password,
-                     const std::uint16_t p_port)
+RemoteLink::RemoteLink(const char* const p_access_point_ssid,
+                       const char* const p_access_point_password,
+                       const std::uint16_t p_port)
     : m_access_point_ssid(p_access_point_ssid),
       m_access_point_password(p_access_point_password),
       m_server_port(p_port)
@@ -26,17 +26,17 @@ UDPServer::UDPServer(const char* const p_access_point_ssid,
     critical_section_init(&m_packet_lock);
 }
 
-UDPServer::~UDPServer()
+RemoteLink::~RemoteLink()
 {
     cleanup();
     critical_section_deinit(&m_packet_lock);
 }
 
-bool UDPServer::init()
+bool RemoteLink::init()
 {
     if (m_initialized)
     {
-        LOG_WARNING("UDP server already initialized");
+        LOG_WARNING("Remote link already initialized");
         return true;
     }
 
@@ -90,7 +90,7 @@ bool UDPServer::init()
                     const ip_addr_t* const p_remote_address,
                     const u16_t p_remote_port)
                 {
-                    auto* const server = static_cast<UDPServer*>(p_arg);
+                    auto* const server = static_cast<RemoteLink*>(p_arg);
                     if (server != nullptr)
                         server->receive_callback(p_pcb, p_packet, p_remote_address, p_remote_port);
                     else if (p_packet != nullptr)
@@ -101,11 +101,11 @@ bool UDPServer::init()
     cyw43_arch_lwip_end();
 
     m_initialized = true;
-    LOG_INFO("UDP server listening on port %u", static_cast<unsigned>(m_server_port));
+    LOG_INFO("Remote link listening on UDP port %u", static_cast<unsigned>(m_server_port));
     return true;
 }
 
-void UDPServer::receive_callback(udp_pcb* const p_pcb,
+void RemoteLink::receive_callback(udp_pcb* const p_pcb,
                                  pbuf* const p_packet,
                                  const ip_addr_t* const p_remote_address,
                                  const std::uint16_t p_remote_port)
@@ -141,7 +141,7 @@ void UDPServer::receive_callback(udp_pcb* const p_pcb,
     critical_section_exit(&m_packet_lock);
 }
 
-bool UDPServer::get_packet(Packet& p_packet)
+bool RemoteLink::get_packet(Packet& p_packet)
 {
     bool has_packet = false;
 
@@ -160,7 +160,7 @@ bool UDPServer::get_packet(Packet& p_packet)
     return has_packet;
 }
 
-void UDPServer::cleanup()
+void RemoteLink::cleanup()
 {
     if (!m_initialized && m_udp_pcb == nullptr && !m_cyw43_initialized)
         return;

@@ -69,6 +69,6 @@ private:
                    const std::uint16_t p_speed);
 
     const DriverPins m_pins;
-    MotorState m_motor_a;
-    MotorState m_motor_b;
+    MotorState m_motor_state_a;
+    MotorState m_motor_state_b;
 };

@@ -9,7 +9,7 @@
 struct pbuf;
 struct udp_pcb;
 
-class UDPServer
+class RemoteLink
 {
 public:
     static constexpr std::size_t MAX_PACKET_BYTES = 256;
@@ -26,13 +26,13 @@ public:
         bool truncated = false;
     };
 
-    UDPServer(const char* p_access_point_ssid,
-              const char* p_access_point_password,
-              std::uint16_t p_port);
-    ~UDPServer();
+    RemoteLink(const char* p_access_point_ssid,
+               const char* p_access_point_password,
+               std::uint16_t p_port);
+    ~RemoteLink();
 
-    UDPServer(const UDPServer& p_other) = delete;
-    UDPServer& operator=(const UDPServer& p_other) = delete;
+    RemoteLink(const RemoteLink& p_other) = delete;
+    RemoteLink& operator=(const RemoteLink& p_other) = delete;
 
     bool init();
     bool get_packet(Packet& p_packet);

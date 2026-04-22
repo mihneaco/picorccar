@@ -1,6 +1,6 @@
 #include "pico_logger.h"
 #include "motor_driver.h"
-#include "udp_server.h"
+#include "remote_link.h"
 
 // Pico SDK
 #include "lwip/ip_addr.h"
@@ -33,7 +33,7 @@ constexpr uint16_t UDP_SERVER_PORT = 12345;
 
 constexpr uint32_t MAIN_LOOP_SLEEP_MS = 10;
 
-void print_udp_packet(const UDPServer::Packet& p_packet)
+void print_udp_packet(const RemoteLink::Packet& p_packet)
 {
     char remote_address[IPADDR_STRLEN_MAX]{};
     ipaddr_ntoa_r(&p_packet.remote_address, remote_address, sizeof(remote_address));
@@ -68,10 +68,10 @@ int main()
     motor_driver.init();
     motor_driver.stop_all();
 
-    UDPServer udp_server(ACCESS_POINT_SSID, ACCESS_POINT_PSK, UDP_SERVER_PORT);
-    if (!udp_server.init())
+    RemoteLink remote_link(ACCESS_POINT_SSID, ACCESS_POINT_PSK, UDP_SERVER_PORT);
+    if (!remote_link.init())
     {
-        LOG_CRITICAL("UDP server initialization failed");
+        LOG_CRITICAL("Remote link initialization failed");
         motor_driver.stop_all();
         while (true)
             tight_loop_contents();
@@ -80,9 +80,9 @@ int main()
     LOG_INFO("main loop started");
     while (true)
     {
-        UDPServer::Packet latest_packet{};
+        RemoteLink::Packet latest_packet{};
 
-        if (udp_server.get_packet(latest_packet))
+        if (remote_link.get_packet(latest_packet))
             print_udp_packet(latest_packet);
 
         /*

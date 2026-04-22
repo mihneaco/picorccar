@@ -46,14 +46,14 @@ void MotorDriver::set_motor_a(const Direction p_direction, const std::uint16_t p
 {
     LOG_DEBUG();
 
-    set_motor(m_pins.m_motor_a, m_motor_a, p_direction, p_speed);
+    set_motor(m_pins.m_motor_a, m_motor_state_a, p_direction, p_speed);
 }
 
 void MotorDriver::set_motor_b(const Direction p_direction, const std::uint16_t p_speed)
 {
     LOG_DEBUG();
 
-    set_motor(m_pins.m_motor_b, m_motor_b, p_direction, p_speed);
+    set_motor(m_pins.m_motor_b, m_motor_state_b, p_direction, p_speed);
 }
 
 void MotorDriver::stop_all()
@@ -153,6 +153,19 @@ void MotorDriver::set_motor(const MotorPins& p_pins,
             sleep_us(DIRECTION_CHANGE_DEADTIME_US);
     }
 
+    /*
+        TB6612 direction table with STBY=H. Forward/reverse assume the current
+        wiring polarity; swap the labels if motor leads are reversed.
+        
+        +---------+-----+-----+-----+
+        | State   | IN1 | IN2 | PWM |
+        +---------+-----+-----+-----+
+        | Forward | H   | L   | PWM |
+        | Reverse | L   | H   | PWM |
+        | Brake   | H   | H   | H/L |
+        | Stop    | L   | L   | H   |
+        +---------+-----+-----+-----+
+    */
     switch (p_direction)
     {
     case Direction::Forward:
@@ -175,7 +188,6 @@ void MotorDriver::set_motor(const MotorPins& p_pins,
 
     case Direction::Stop:
     default:
-        // TB6612 stop/coast mode is IN1=L, IN2=L, PWM=H with STBY=H.
         gpio_put(p_pins.m_in1, 0);
         gpio_put(p_pins.m_in2, 0);
         set_pwm_duty(p_pins.m_pwm, PWM_FULL_DUTY);
