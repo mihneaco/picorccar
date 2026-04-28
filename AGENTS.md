@@ -23,7 +23,8 @@ Primary priorities:
 - Code should assume electrically noisy conditions due to motor switching and possible brownout/reset risk.
 
 ## Build and validation
-- First identify the active board, SDK version, and build system from `CMakeLists.txt`, presets, and config headers.
+- First parse the build system from `CMakeLists.txt`, presets, and config headers.
+- Run the dev CMake preset as a default. Only check the release preset if it was affected by the change.
 - After changes, run the narrowest relevant checks first:
   1. build of affected target
   2. lint/format on touched files if configured

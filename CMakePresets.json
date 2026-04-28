@@ -6,10 +6,10 @@
     },
     "configurePresets": [
         {
-            "name": "pico2w",
-            "displayName": "Pico 2 W (Makefiles)",
+            "name": "dev",
+            "displayName": "Dev",
             "generator": "Unix Makefiles",
-            "binaryDir": "${sourceDir}/build",
+            "binaryDir": "${sourceDir}/build/dev",
             "environment": {
                 "LANG": "C.UTF-8",
                 "LC_ALL": "C.UTF-8",
@@ -18,19 +18,34 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "PICO_BOARD": "pico2_w"
+                "LOGGING_THRESHOLD": "ULOG_TRACE_LEVEL"
+            }
+        },
+        {
+            "name": "release",
+            "displayName": "Release",
+            "generator": "Unix Makefiles",
+            "binaryDir": "${sourceDir}/build/release",
+            "environment": {
+                "LANG": "C.UTF-8",
+                "LC_ALL": "C.UTF-8",
+                "LANGUAGE": "en"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "LOGGING_THRESHOLD": "ULOG_INFO_LEVEL"
             }
         }
     ],
     "buildPresets": [
         {
-            "name": "pico2w",
-            "configurePreset": "pico2w",
-            "environment": {
-                "LANG": "C.UTF-8",
-                "LC_ALL": "C.UTF-8",
-                "LANGUAGE": "en"
-            }
+            "name": "dev",
+            "configurePreset": "dev"
+        },
+        {
+            "name": "release",
+            "configurePreset": "release"
         }
     ]
 }

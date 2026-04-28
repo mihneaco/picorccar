@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 
+set(PICO_BOARD "pico2_w" CACHE STRING "Pico target board for this project")
+
 if (NOT DEFINED PICOTOOL_FETCH_FROM_GIT_PATH)
     if (DEFINED ENV{HOME})
         set(PICOTOOL_FETCH_FROM_GIT_PATH "$ENV{HOME}/pico-tool" CACHE PATH "Local picotool checkout path")
@@ -34,10 +36,15 @@ add_executable(${PROJECT_NAME}
     src/remote_link.cpp
 )
 
+if (NOT DEFINED LOGGING_THRESHOLD)
+    set(LOGGING_THRESHOLD ULOG_INFO_LEVEL)
+endif()
+
 target_compile_definitions(${PROJECT_NAME}
     PRIVATE
         ULOG_ENABLED
         ULOG_MAX_MESSAGE_LENGTH=1024
+        LOGGING_THRESHOLD=${LOGGING_THRESHOLD}
 )
 
 if (CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")

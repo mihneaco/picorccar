@@ -1,15 +1,17 @@
-all: pico2w
+.PHONY: all dev release install clean
 
-pico2w: pico2w--config pico2w--build
+all: dev
 
-pico2w--config:
-	cmake --preset "pico2w"
+dev:
+	cmake --preset dev
+	cmake --build --preset dev
 
-pico2w--build:
-	cmake --build --preset "pico2w"
+release:
+	cmake --preset release
+	cmake --build --preset release
 
-install: pico2w
-	cmake --install build
+install: dev
+	cmake --install build/dev
 
 clean:
 	rm -rf build/

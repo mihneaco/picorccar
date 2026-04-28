@@ -65,7 +65,7 @@ int main()
           It's fine to init logging first to benefit from it inside the motor driver code.
     */
     stdio_init_all();
-    logger::init(ULOG_TRACE_LEVEL);
+    logger::init(LOGGING_THRESHOLD);
     LOG_INFO("Logging initialized");
 
     LOG_INFO("Initializing Motor Driver");
