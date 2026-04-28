@@ -14,6 +14,13 @@ endif()
 
 include(${PICO_SDK_PATH}/pico_sdk_init.cmake)
 
+set(MIN_PICO_SDK_VERSION "2.2.0")
+if (PICO_SDK_VERSION_STRING VERSION_LESS MIN_PICO_SDK_VERSION)
+    message(FATAL_ERROR
+        "Unsupported Pico SDK version '${PICO_SDK_VERSION_STRING}' at '${PICO_SDK_PATH}'. "
+        "Expected >= '${MIN_PICO_SDK_VERSION}'.")
+endif()
+
 project(picorccar C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
@@ -32,6 +39,14 @@ target_compile_definitions(${PROJECT_NAME}
         ULOG_ENABLED
         ULOG_MAX_MESSAGE_LENGTH=1024
 )
+
+if (CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(${PROJECT_NAME}
+        PRIVATE
+            -Wall
+            -Wextra
+    )
+endif()
 
 target_include_directories(${PROJECT_NAME}
     PRIVATE

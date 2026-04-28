@@ -32,7 +32,9 @@ public:
     ~RemoteLink();
 
     RemoteLink(const RemoteLink& p_other) = delete;
+    RemoteLink(RemoteLink&& p_other) = delete;
     RemoteLink& operator=(const RemoteLink& p_other) = delete;
+    RemoteLink& operator=(RemoteLink&& p_other) = delete;
 
     bool init();
     bool get_packet(Packet& p_packet);

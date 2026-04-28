@@ -24,7 +24,7 @@ public:
         Pin m_standby;
     };
 
-    enum class Direction
+    enum class DriveMode
     {
         Stop,
         Forward,
@@ -35,17 +35,21 @@ public:
     static constexpr std::uint16_t MAX_SPEED = 1000;
 
     explicit MotorDriver(const DriverPins p_pins);
+    MotorDriver(const MotorDriver& p_other) = delete;
+    MotorDriver(MotorDriver&& p_other) = delete;
+    MotorDriver& operator=(const MotorDriver& p_other) = delete;
+    MotorDriver& operator=(MotorDriver&& p_other) = delete;
 
     void init();
-    void set_motor_a(const Direction p_direction, const std::uint16_t p_speed);
-    void set_motor_b(const Direction p_direction, const std::uint16_t p_speed);
+    void set_motor_a(const DriveMode p_drive_mode, const std::uint16_t p_speed);
+    void set_motor_b(const DriveMode p_drive_mode, const std::uint16_t p_speed);
     void stop_all();
 
 private:
     struct MotorState
     {
-        Direction m_direction = Direction::Stop;
-        std::uint16_t m_speed = 0;
+        DriveMode m_drive_mode = DriveMode::Stop;
+        std::uint16_t m_pwm_duty = 0;
     };
 
     static constexpr std::uint16_t PWM_WRAP = MAX_SPEED;
@@ -61,11 +65,11 @@ private:
     void init_pwm_pin(const Pin p_pwm_pin);
     void set_pwm_duty(const Pin p_pwm_pin, const std::uint16_t p_duty);
     bool is_known_pwm_pin(const Pin p_pwm_pin) const;
-    static bool is_direction_reversal(const Direction p_current, const Direction p_next);
+    static bool is_drive_mode_reversal(const DriveMode p_current, const DriveMode p_next);
 
     void set_motor(const MotorPins& p_pins,
                    MotorState& p_motor,
-                   const Direction p_direction,
+                   const DriveMode p_drive_mode,
                    const std::uint16_t p_speed);
 
     const DriverPins m_pins;

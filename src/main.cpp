@@ -8,10 +8,6 @@
 
 namespace
 {
-constexpr uint16_t BRINGUP_TEST_SPEED = MotorDriver::MAX_SPEED;
-constexpr uint32_t BRINGUP_RUN_MS = 750;
-constexpr uint32_t BRINGUP_PAUSE_MS = 750;
-
 // TB6612FNG pin mapping
 constexpr MotorDriver::Pin PWMA = 2;
 constexpr MotorDriver::Pin AIN2 = 3;
@@ -27,11 +23,15 @@ constexpr MotorDriver::DriverPins MOTOR_DRIVER_PINS{
     STBY
 };
 
+/* 
+    @todo read AP credentials from file.
+    @todo change the passwd if you reuse this.
+*/
 constexpr char ACCESS_POINT_SSID[] = "PicoRCCar";
-constexpr char ACCESS_POINT_PSK[] = "12345678";
+constexpr char ACCESS_POINT_PSK[] = "brick-owl-69";
 constexpr uint16_t UDP_SERVER_PORT = 12345;
 
-constexpr uint32_t MAIN_LOOP_SLEEP_MS = 10;
+constexpr uint32_t MAIN_LOOP_SLEEP_MS = 20;
 
 void print_udp_packet(const RemoteLink::Packet& p_packet)
 {
@@ -60,14 +60,20 @@ void print_udp_packet(const RemoteLink::Packet& p_packet)
 
 int main()
 {
+    /*
+        TB6612FNG has an internal pull-down that holds STBY low at MCU startup/reboot.
+          It's fine to init logging first to benefit from it inside the motor driver code.
+    */
     stdio_init_all();
     logger::init(ULOG_TRACE_LEVEL);
-    LOG_INFO();
+    LOG_INFO("Logging initialized");
 
+    LOG_INFO("Initializing Motor Driver");
     MotorDriver motor_driver(MOTOR_DRIVER_PINS);
     motor_driver.init();
     motor_driver.stop_all();
 
+    LOG_INFO("Initializing Remote Link");
     RemoteLink remote_link(ACCESS_POINT_SSID, ACCESS_POINT_PSK, UDP_SERVER_PORT);
     if (!remote_link.init())
     {
@@ -78,11 +84,12 @@ int main()
     }
 
     LOG_INFO("main loop started");
+
+    RemoteLink::Packet latest_packet{};
     while (true)
     {
-        RemoteLink::Packet latest_packet{};
-
-        if (remote_link.get_packet(latest_packet))
+        auto res = remote_link.get_packet(latest_packet);
+        if (res)
             print_udp_packet(latest_packet);
 
         /*

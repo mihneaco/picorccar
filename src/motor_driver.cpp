@@ -8,17 +8,17 @@
 
 namespace
 {
-constexpr const char* direction_name(const MotorDriver::Direction p_direction)
+constexpr const char* drive_mode_name(const MotorDriver::DriveMode p_drive_mode)
 {
-    switch (p_direction)
+    switch (p_drive_mode)
     {
-    case MotorDriver::Direction::Stop:
+    case MotorDriver::DriveMode::Stop:
         return "Stop";
-    case MotorDriver::Direction::Forward:
+    case MotorDriver::DriveMode::Forward:
         return "Forward";
-    case MotorDriver::Direction::Reverse:
+    case MotorDriver::DriveMode::Reverse:
         return "Reverse";
-    case MotorDriver::Direction::Brake:
+    case MotorDriver::DriveMode::Brake:
         return "Brake";
     default:
         return "Unknown";
@@ -29,7 +29,6 @@ constexpr const char* direction_name(const MotorDriver::Direction p_direction)
 MotorDriver::MotorDriver(const DriverPins p_pins) : m_pins(p_pins)
 {
     LOG_DEBUG();
-    gpio_put(m_pins.m_standby, 0);
 }
 
 void MotorDriver::init()
@@ -42,26 +41,26 @@ void MotorDriver::init()
     gpio_put(m_pins.m_standby, 1);
 }
 
-void MotorDriver::set_motor_a(const Direction p_direction, const std::uint16_t p_speed)
+void MotorDriver::set_motor_a(const DriveMode p_drive_mode, const std::uint16_t p_pwm_duty)
 {
     LOG_DEBUG();
 
-    set_motor(m_pins.m_motor_a, m_motor_state_a, p_direction, p_speed);
+    set_motor(m_pins.m_motor_a, m_motor_state_a, p_drive_mode, p_pwm_duty);
 }
 
-void MotorDriver::set_motor_b(const Direction p_direction, const std::uint16_t p_speed)
+void MotorDriver::set_motor_b(const DriveMode p_drive_mode, const std::uint16_t p_pwm_duty)
 {
     LOG_DEBUG();
 
-    set_motor(m_pins.m_motor_b, m_motor_state_b, p_direction, p_speed);
+    set_motor(m_pins.m_motor_b, m_motor_state_b, p_drive_mode, p_pwm_duty);
 }
 
 void MotorDriver::stop_all()
 {
     LOG_DEBUG();
 
-    set_motor_a(Direction::Stop, 0);
-    set_motor_b(Direction::Stop, 0);
+    set_motor_a(DriveMode::Stop, 0);
+    set_motor_b(DriveMode::Stop, 0);
 }
 
 void MotorDriver::init_pins()
@@ -121,41 +120,43 @@ bool MotorDriver::is_known_pwm_pin(const Pin p_pwm_pin) const
     return p_pwm_pin == m_pins.m_motor_a.m_pwm || p_pwm_pin == m_pins.m_motor_b.m_pwm;
 }
 
-bool MotorDriver::is_direction_reversal(const Direction p_current, const Direction p_next)
+bool MotorDriver::is_drive_mode_reversal(const DriveMode p_current, const DriveMode p_next)
 {
-    return (p_current == Direction::Forward && p_next == Direction::Reverse) ||
-           (p_current == Direction::Reverse && p_next == Direction::Forward);
+    return (p_current == DriveMode::Forward && p_next == DriveMode::Reverse) ||
+           (p_current == DriveMode::Reverse && p_next == DriveMode::Forward);
 }
 
 void MotorDriver::set_motor(const MotorPins& p_pins,
                             MotorState& p_motor,
-                            const Direction p_direction,
-                            const std::uint16_t p_speed)
+                            const DriveMode p_drive_mode,
+                            const std::uint16_t p_pwm_duty)
 {
     LOG_DEBUG("pins=%u/%u/%u state=%s/%u request=%s/%u",
               static_cast<uint>(p_pins.m_in1),
               static_cast<uint>(p_pins.m_in2),
               static_cast<uint>(p_pins.m_pwm),
-              direction_name(p_motor.m_direction),
-              static_cast<uint>(p_motor.m_speed),
-              direction_name(p_direction),
-              static_cast<uint>(p_speed));
+              drive_mode_name(p_motor.m_drive_mode),
+              static_cast<uint>(p_motor.m_pwm_duty),
+              drive_mode_name(p_drive_mode),
+              static_cast<uint>(p_pwm_duty));
 
-    if (p_speed > PWM_WRAP)
+    if (p_pwm_duty > PWM_WRAP)
         LOG_WARNING("speed > PWM_WRAP, defaulting to PWM_WRAP");
-    const std::uint16_t clamped_speed = p_speed > PWM_WRAP ? PWM_WRAP : p_speed;
+    const std::uint16_t clamped_speed = p_pwm_duty > PWM_WRAP ? PWM_WRAP : p_pwm_duty;
 
     // Drop PWM before changing direction to avoid slamming directly through a reversal.
-    if (p_direction != p_motor.m_direction)
+    if (p_drive_mode != p_motor.m_drive_mode)
     {
         set_pwm_duty(p_pins.m_pwm, 0);
-        if (is_direction_reversal(p_motor.m_direction, p_direction))
+        if (is_drive_mode_reversal(p_motor.m_drive_mode, p_drive_mode))
             sleep_us(DIRECTION_CHANGE_DEADTIME_US);
     }
 
+    std::uint16_t applied_pwm_duty = PWM_FULL_DUTY;
+
     /*
         TB6612 direction table with STBY=H. Forward/reverse assume the current
-        wiring polarity; swap the labels if motor leads are reversed.
+        wiring polarity; swap the labels if motor wires are reversed.
         
         +---------+-----+-----+-----+
         | State   | IN1 | IN2 | PWM |
@@ -166,34 +167,36 @@ void MotorDriver::set_motor(const MotorPins& p_pins,
         | Stop    | L   | L   | H   |
         +---------+-----+-----+-----+
     */
-    switch (p_direction)
+    switch (p_drive_mode)
     {
-    case Direction::Forward:
+    case DriveMode::Forward:
         gpio_put(p_pins.m_in1, 1);
         gpio_put(p_pins.m_in2, 0);
-        set_pwm_duty(p_pins.m_pwm, clamped_speed);
+        applied_pwm_duty = clamped_speed;
+        set_pwm_duty(p_pins.m_pwm, applied_pwm_duty);
         break;
 
-    case Direction::Reverse:
+    case DriveMode::Reverse:
         gpio_put(p_pins.m_in1, 0);
         gpio_put(p_pins.m_in2, 1);
-        set_pwm_duty(p_pins.m_pwm, clamped_speed);
+        applied_pwm_duty = clamped_speed;
+        set_pwm_duty(p_pins.m_pwm, applied_pwm_duty);
         break;
 
-    case Direction::Brake:
+    case DriveMode::Brake:
         gpio_put(p_pins.m_in1, 1);
         gpio_put(p_pins.m_in2, 1);
-        set_pwm_duty(p_pins.m_pwm, PWM_FULL_DUTY);
+        set_pwm_duty(p_pins.m_pwm, applied_pwm_duty);
         break;
 
-    case Direction::Stop:
+    case DriveMode::Stop:
     default:
         gpio_put(p_pins.m_in1, 0);
         gpio_put(p_pins.m_in2, 0);
-        set_pwm_duty(p_pins.m_pwm, PWM_FULL_DUTY);
+        set_pwm_duty(p_pins.m_pwm, applied_pwm_duty);
         break;
     }
 
-    p_motor.m_direction = p_direction;
-    p_motor.m_speed = clamped_speed;
+    p_motor.m_drive_mode = p_drive_mode;
+    p_motor.m_pwm_duty = applied_pwm_duty;
 }
