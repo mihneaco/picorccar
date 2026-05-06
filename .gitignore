@@ -14,3 +14,4 @@ compile_commands.json
 !.vscode/launch.json
 !.vscode/extensions.json
 .codex
+.agents

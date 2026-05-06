@@ -33,7 +33,7 @@ Primary priorities:
 - If the change affects Wi-Fi, motor timing, or hardware startup behavior, explicitly state what still requires bench validation.
 
 ## Pico 2 W specific guidance
-- Use the Pico SDK CYW43 APIs for Wi-Fi and onboard LED behavior.
+- Use the Pico SDK CYW43 APIs for Wi-Fi and LWIP for ip tcp/udp
 - Avoid unnecessary interaction between motor-control timing and Wi-Fi/network code.
 - Keep interrupt handlers short.
 - Avoid blocking calls in control loops, ISRs, or timing-sensitive callbacks.

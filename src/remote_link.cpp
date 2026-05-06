@@ -83,20 +83,22 @@ bool RemoteLink::init()
             return false;
         }
 
-        udp_recv(m_udp_pcb,
-                [](void* const p_arg,
-                    udp_pcb* const p_pcb,
-                    pbuf* const p_packet,
-                    const ip_addr_t* const p_remote_address,
-                    const u16_t p_remote_port)
-                {
-                    auto* const server = static_cast<RemoteLink*>(p_arg);
-                    if (server != nullptr)
-                        server->receive_callback(p_pcb, p_packet, p_remote_address, p_remote_port);
-                    else if (p_packet != nullptr)
-                        pbuf_free(p_packet);
-                },
-                this);
+        const udp_recv_fn receive_cbk = [] (void* p_arg,
+                                            udp_pcb* p_pcb,
+                                            pbuf* p_packet,
+                                            const ip_addr_t* p_remote_address,
+                                            u16_t p_remote_port)
+                                           {
+                                                auto* const this_ref = static_cast<RemoteLink*>(p_arg);
+                                                if (this_ref != nullptr)
+                                                    this_ref->receive_callback(p_pcb,
+                                                                               p_packet,
+                                                                               p_remote_address,
+                                                                               p_remote_port);
+                                                else if (p_packet != nullptr)
+                                                    pbuf_free(p_packet);
+                                           };
+        udp_recv(m_udp_pcb, receive_cbk, this);
     }
     cyw43_arch_lwip_end();
 
@@ -105,10 +107,10 @@ bool RemoteLink::init()
     return true;
 }
 
-void RemoteLink::receive_callback(udp_pcb* const p_pcb,
-                                 pbuf* const p_packet,
-                                 const ip_addr_t* const p_remote_address,
-                                 const std::uint16_t p_remote_port)
+void RemoteLink::receive_callback(udp_pcb* p_pcb,
+                                  pbuf* p_packet,
+                                  const ip_addr_t* p_remote_address,
+                                  u16_t p_remote_port)
 {
     (void)p_pcb;
 

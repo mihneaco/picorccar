@@ -1,3 +1,5 @@
+#include <cstdint>
+
 #include "pico_logger.h"
 #include "motor_driver.h"
 #include "remote_link.h"
@@ -29,9 +31,10 @@ constexpr MotorDriver::DriverPins MOTOR_DRIVER_PINS{
 */
 constexpr char ACCESS_POINT_SSID[] = "PicoRCCar";
 constexpr char ACCESS_POINT_PSK[] = "brick-owl-69";
-constexpr uint16_t UDP_SERVER_PORT = 12345;
+constexpr std::uint16_t UDP_SERVER_PORT = 12345;
 
-constexpr uint32_t MAIN_LOOP_SLEEP_MS = 20;
+constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
+constexpr std::uint32_t COMMAND_TIMEOUT_MS = 250;
 
 void print_udp_packet(const RemoteLink::Packet& p_packet)
 {
@@ -86,15 +89,27 @@ int main()
     LOG_INFO("main loop started");
 
     RemoteLink::Packet latest_packet{};
+    std::uint32_t last_packet_ms{to_ms_since_boot(get_absolute_time())};
     while (true)
     {
-        auto res = remote_link.get_packet(latest_packet);
-        if (res)
-            print_udp_packet(latest_packet);
-
         /*
             @todo - Add motor-command decoding, command timeout and failsafe updates.
         */
+
+        auto res = remote_link.get_packet(latest_packet);
+        if (res)
+        {
+            last_packet_ms = latest_packet.received_ms;
+            print_udp_packet(latest_packet);
+        }
+
+        const std::uint32_t packet_age_ms = to_ms_since_boot(get_absolute_time()) - last_packet_ms;
+        if (packet_age_ms > COMMAND_TIMEOUT_MS)
+        {
+            /* @todo uncomment after adding command packet processing
+                motor_driver.stop_all();
+            */
+        }
 
         sleep_ms(MAIN_LOOP_SLEEP_MS);
     }
