@@ -69,6 +69,11 @@ int main()
     */
     stdio_init_all();
     logger::init(LOGGING_THRESHOLD);
+    /*
+        @description Delay to allow opening of a serial conn to read the logs.
+        @todo Remove this or move under ifdef DEBUG.
+    */
+    sleep_ms(3000);
     LOG_INFO("Logging initialized");
 
     LOG_INFO("Initializing Motor Driver");
@@ -86,8 +91,8 @@ int main()
             tight_loop_contents();
     }
 
-    LOG_INFO("main loop started");
-
+    // #### MAIN LOOP ####
+    LOG_INFO("Starting MAIN loop");
     RemoteLink::Packet latest_packet{};
     std::uint32_t last_packet_ms{to_ms_since_boot(get_absolute_time())};
     while (true)
