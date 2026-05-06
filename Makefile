@@ -1,17 +1,27 @@
-.PHONY: all dev release install clean
+BUILD ?= dev
+BUILD_DIR := build/$(BUILD)
 
-all: dev
+CAR_TARGET := picorccar_car
+CONTROLLER_TARGET := picorccar_controller
 
-dev:
-	cmake --preset dev
-	cmake --build --preset dev
+.PHONY: all configure car controller install-car install-controller clean
 
-release:
-	cmake --preset release
-	cmake --build --preset release
+all: car controller
 
-install: dev
-	cmake --install build/dev
+configure:
+	cmake --preset $(BUILD)
+
+car: configure
+	cmake --build $(BUILD_DIR) --target $(CAR_TARGET)
+
+controller: configure
+	cmake --build $(BUILD_DIR) --target $(CONTROLLER_TARGET)
+
+install-car: car
+	cmake --install $(BUILD_DIR) --component car
+
+install-controller: controller
+	cmake --install $(BUILD_DIR) --component controller
 
 clean:
 	rm -rf build/

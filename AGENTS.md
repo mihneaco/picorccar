@@ -1,7 +1,7 @@
 # AGENTS.md
 
 ## Project overview
-This repository contains firmware for a Raspberry Pi Pico 2 W (RP2350) controlling 2 DC motors through a TB6612FNG motor driver.
+This repository contains firmware for a Raspberry Pi Pico 2 W (RP2350) controlling 2 DC motors through a TB6612FNG motor driver and a joystick wired to another RP2350 acting as a controller
 
 Primary priorities:
 1. Correctness and hardware safety
