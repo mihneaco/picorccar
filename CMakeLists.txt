@@ -1,5 +1,14 @@
 cmake_minimum_required(VERSION 3.28)
 
+if (CMAKE_GENERATOR STREQUAL "Ninja")
+    find_program(NINJA_EXECUTABLE NAMES ninja ninja-build)
+    if (NOT NINJA_EXECUTABLE)
+        message(FATAL_ERROR
+            "The selected CMake generator is 'Ninja', but no ninja executable was found. "
+            "Install the 'ninja' package or choose a different generator.")
+    endif()
+endif()
+
 set(PICO_BOARD "pico2_w" CACHE STRING "Pico target board for this project")
 
 if (NOT DEFINED PICOTOOL_FETCH_FROM_GIT_PATH)
