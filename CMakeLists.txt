@@ -43,6 +43,7 @@ if (CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     )
 endif()
 
+# Common headers
 add_library(picorccar_firmware_headers INTERFACE)
 target_include_directories(picorccar_firmware_headers
     INTERFACE

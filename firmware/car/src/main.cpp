@@ -1,5 +1,6 @@
 #include <cstdint>
 
+#include "common.h"
 #include "pico_logger.h"
 #include "motor_driver.h"
 #include "remote_link.h"
@@ -24,14 +25,6 @@ constexpr MotorDriver::DriverPins MOTOR_DRIVER_PINS{
     {BIN1, BIN2, PWMB},
     STBY
 };
-
-/* 
-    @todo read AP credentials from file.
-    @todo change the passwd if you reuse this.
-*/
-constexpr char ACCESS_POINT_SSID[] = "PicoRCCar";
-constexpr char ACCESS_POINT_PSK[] = "brick-owl-69";
-constexpr std::uint16_t UDP_SERVER_PORT = 12345;
 
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 constexpr std::uint32_t COMMAND_TIMEOUT_MS = 250;
@@ -64,13 +57,13 @@ void print_udp_packet(const RemoteLink::Packet& p_packet)
 int main()
 {
     /*
-        TB6612FNG has an internal pull-down that holds STBY low at MCU startup/reboot.
-          It's fine to init logging first to benefit from it inside the motor driver code.
+        @note TB6612FNG has an internal pull-down that holds STBY low at MCU startup/reboot.
+                It's fine to init logging first to benefit from it inside the motor driver code.
     */
     stdio_init_all();
     logger::init(LOGGING_THRESHOLD);
     /*
-        @description Delay to allow opening of a serial conn to read the logs.
+        @note Delay to allow opening of a serial conn to read the logs.
         @todo Remove this or move under ifdef DEBUG.
     */
     sleep_ms(3000);
@@ -82,11 +75,13 @@ int main()
     motor_driver.stop_all();
 
     LOG_INFO("Initializing Remote Link");
-    RemoteLink remote_link(ACCESS_POINT_SSID, ACCESS_POINT_PSK, UDP_SERVER_PORT);
+    RemoteLink remote_link(common::ACCESS_POINT_SSID,
+                           common::ACCESS_POINT_PSK,
+                           common::UDP_SERVER_PORT);
     if (!remote_link.init())
     {
         LOG_CRITICAL("Remote link initialization failed");
-        motor_driver.stop_all();
+        motor_driver.set_standby(false);
         while (true)
             tight_loop_contents();
     }

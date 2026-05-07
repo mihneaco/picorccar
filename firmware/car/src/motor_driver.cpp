@@ -38,21 +38,27 @@ void MotorDriver::init()
     init_pins();
 
     stop_all();
-    gpio_put(m_pins.m_standby, 1);
+    set_standby(true);
 }
 
 void MotorDriver::set_motor_a(const DriveMode p_drive_mode, const std::uint16_t p_pwm_duty)
 {
-    LOG_DEBUG();
-
     set_motor(m_pins.m_motor_a, m_motor_state_a, p_drive_mode, p_pwm_duty);
 }
 
 void MotorDriver::set_motor_b(const DriveMode p_drive_mode, const std::uint16_t p_pwm_duty)
 {
-    LOG_DEBUG();
-
     set_motor(m_pins.m_motor_b, m_motor_state_b, p_drive_mode, p_pwm_duty);
+}
+
+void MotorDriver::set_standby(const bool p_enabled)
+{
+    LOG_DEBUG("STBY=%s", p_enabled ? "H" : "L");
+
+    if (!p_enabled)
+        stop_all();
+
+    gpio_put(m_pins.m_standby, p_enabled ? 1 : 0);
 }
 
 void MotorDriver::stop_all()
@@ -79,7 +85,7 @@ void MotorDriver::init_pins()
 
 void MotorDriver::init_control_pin(const Pin p_pin)
 {
-    LOG_DEBUG();
+    LOG_DEBUG("pin=%u", static_cast<uint>(p_pin));
 
     gpio_init(p_pin);
     gpio_set_dir(p_pin, GPIO_OUT);
@@ -87,7 +93,7 @@ void MotorDriver::init_control_pin(const Pin p_pin)
 
 void MotorDriver::init_pwm_pin(const Pin p_pwm_pin)
 {
-    LOG_DEBUG();
+    LOG_DEBUG("pin=%u", static_cast<uint>(p_pwm_pin));
 
     gpio_set_function(p_pwm_pin, GPIO_FUNC_PWM);
     uint slice = pwm_gpio_to_slice_num(p_pwm_pin);
@@ -107,7 +113,9 @@ void MotorDriver::init_pwm_pin(const Pin p_pwm_pin)
 
 void MotorDriver::set_pwm_duty(const Pin p_pwm_pin, const std::uint16_t p_duty)
 {
-    LOG_TRACE();
+    LOG_TRACE("pin=%u duty=%u",
+              static_cast<uint>(p_pwm_pin),
+              static_cast<uint>(p_duty));
 
     assert(is_known_pwm_pin(p_pwm_pin));
 

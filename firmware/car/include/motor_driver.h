@@ -43,6 +43,7 @@ public:
     void init();
     void set_motor_a(const DriveMode p_drive_mode, const std::uint16_t p_speed);
     void set_motor_b(const DriveMode p_drive_mode, const std::uint16_t p_speed);
+    void set_standby(bool p_enabled);
     void stop_all();
 
 private:
