@@ -16,9 +16,9 @@ target_compile_definitions(${PROJECT_NAME}
 
 # This firmware uses AP mode without a DHCP server. Pin the AP IPv4 settings
 # explicitly so controller firmware can use a matching static client address.
-pico_configure_ip4_address(${PROJECT_NAME} PRIVATE CYW43_DEFAULT_IP_AP_ADDRESS "192.168.4.1")
-pico_configure_ip4_address(${PROJECT_NAME} PRIVATE CYW43_DEFAULT_IP_AP_GATEWAY "192.168.4.1")
-pico_configure_ip4_address(${PROJECT_NAME} PRIVATE CYW43_DEFAULT_IP_MASK "255.255.255.0")
+pico_configure_ip4_address(${PROJECT_NAME} PRIVATE CYW43_DEFAULT_IP_AP_ADDRESS "${PICORCCAR_WIFI_AP_IP}")
+pico_configure_ip4_address(${PROJECT_NAME} PRIVATE CYW43_DEFAULT_IP_AP_GATEWAY "${PICORCCAR_WIFI_AP_IP}")
+pico_configure_ip4_address(${PROJECT_NAME} PRIVATE CYW43_DEFAULT_IP_MASK "${PICORCCAR_WIFI_NETMASK}")
 
 target_include_directories(${PROJECT_NAME}
     PRIVATE
