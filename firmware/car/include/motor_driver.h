@@ -2,28 +2,37 @@
 
 #include <cstdint>
 
-#include "pico/types.h"
+#include "pinout.h"
+
+namespace pinout
+{
+struct MotorPins
+{
+    Pin m_in1;
+    Pin m_in2;
+    Pin m_pwm;
+};
+
+struct DriverPins
+{
+    MotorPins m_motor_a;
+    MotorPins m_motor_b;
+    Pin m_standby;
+};
+
+constexpr DriverPins MOTOR_DRIVER_PINS
+{
+    {MOTOR_A_IN1, MOTOR_A_IN2, MOTOR_A_PWM},
+    {MOTOR_B_IN1, MOTOR_B_IN2, MOTOR_B_PWM},
+    MOTOR_DRIVER_STANDBY
+};
+
+}
+
 
 class MotorDriver
 {
 public:
-    //  Pico SDK uses uint for most of its apis that take a GPIO pin number so use that
-    using Pin = uint;
-
-    struct MotorPins
-    {
-        Pin m_in1;
-        Pin m_in2;
-        Pin m_pwm;
-    };
-
-    struct DriverPins
-    {
-        MotorPins m_motor_a;
-        MotorPins m_motor_b;
-        Pin m_standby;
-    };
-
     enum class DriveMode
     {
         Stop,
@@ -34,10 +43,10 @@ public:
 
     static constexpr std::uint16_t MAX_SPEED = 1000;
 
-    explicit MotorDriver(const DriverPins p_pins);
+    explicit MotorDriver(const pinout::DriverPins p_pins);
     MotorDriver(const MotorDriver& p_other) = delete;
     MotorDriver(MotorDriver&& p_other) = delete;
-    MotorDriver& operator=(const MotorDriver& p_other) = delete;
+    MotorDriver& operator=(const MotorDriver &p_otherDriverPins) = delete;
     MotorDriver& operator=(MotorDriver&& p_other) = delete;
 
     void init();
@@ -62,18 +71,18 @@ private:
     static constexpr std::uint32_t DIRECTION_CHANGE_DEADTIME_US = 100;
 
     void init_pins();
-    void init_control_pin(const Pin p_pin);
-    void init_pwm_pin(const Pin p_pwm_pin);
-    void set_pwm_duty(const Pin p_pwm_pin, const std::uint16_t p_duty);
-    bool is_known_pwm_pin(const Pin p_pwm_pin) const;
+    void init_control_pin(const pinout::Pin p_pin);
+    void init_pwm_pin(const pinout::Pin p_pwm_pin);
+    void set_pwm_duty(const pinout::Pin p_pwm_pin, const std::uint16_t p_duty);
+    bool is_known_pwm_pin(const pinout::Pin p_pwm_pin) const;
     static bool is_drive_mode_reversal(const DriveMode p_current, const DriveMode p_next);
 
-    void set_motor(const MotorPins& p_pins,
+    void set_motor(const pinout::MotorPins& p_pins,
                    MotorState& p_motor,
                    const DriveMode p_drive_mode,
                    const std::uint16_t p_speed);
 
-    const DriverPins m_pins;
+    const pinout::DriverPins m_pins;
     MotorState m_motor_state_a;
     MotorState m_motor_state_b;
 };

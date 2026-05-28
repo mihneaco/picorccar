@@ -1,6 +1,7 @@
 project(picorccar_controller NONE)
 
 add_executable(${PROJECT_NAME}
+    src/joystick_controller.cpp
     src/main.cpp
     src/remote_link.cpp
     ${CMAKE_SOURCE_DIR}/third_party/ulog/ulog.c
@@ -27,6 +28,7 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE
         picorccar_firmware_headers
         picorccar_warnings
+        hardware_adc
         pico_stdlib
         pico_cyw43_arch_lwip_threadsafe_background
 )

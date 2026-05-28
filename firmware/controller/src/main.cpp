@@ -1,4 +1,6 @@
-#include "common.h"
+#include "network_conf.h"
+#include "joystick_controller.h"
+#include "pinout.h"
 #include "pico_logger.h"
 #include "remote_link.h"
 
@@ -14,6 +16,15 @@ int main()
 {
     stdio_init_all();
     logger::init(LOGGING_THRESHOLD);
+
+    LOG_INFO("Initializing Joystick Controller");
+    JoystickController joystick_controller(pinout::JOYSTICK_PINS);
+    if (!joystick_controller.init())
+    {
+        LOG_CRITICAL("Joystick controller initialization failed");
+        while (true)
+            tight_loop_contents();
+    }
 
     ip_addr_t remote_address{};
     if (!ipaddr_aton(common::UDP_SERVER_IP, &remote_address))

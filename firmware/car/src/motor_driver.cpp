@@ -26,7 +26,7 @@ constexpr const char* drive_mode_name(const MotorDriver::DriveMode p_drive_mode)
 }
 }
 
-MotorDriver::MotorDriver(const DriverPins p_pins) : m_pins(p_pins)
+MotorDriver::MotorDriver(const pinout::DriverPins p_pins) : m_pins(p_pins)
 {
     LOG_DEBUG();
 }
@@ -83,7 +83,7 @@ void MotorDriver::init_pins()
     init_pwm_pin(m_pins.m_motor_b.m_pwm);
 }
 
-void MotorDriver::init_control_pin(const Pin p_pin)
+void MotorDriver::init_control_pin(const pinout::Pin p_pin)
 {
     LOG_DEBUG("pin=%u", static_cast<uint>(p_pin));
 
@@ -91,7 +91,7 @@ void MotorDriver::init_control_pin(const Pin p_pin)
     gpio_set_dir(p_pin, GPIO_OUT);
 }
 
-void MotorDriver::init_pwm_pin(const Pin p_pwm_pin)
+void MotorDriver::init_pwm_pin(const pinout::Pin p_pwm_pin)
 {
     LOG_DEBUG("pin=%u", static_cast<uint>(p_pwm_pin));
 
@@ -111,7 +111,7 @@ void MotorDriver::init_pwm_pin(const Pin p_pwm_pin)
     pwm_set_gpio_level(p_pwm_pin, 0);
 }
 
-void MotorDriver::set_pwm_duty(const Pin p_pwm_pin, const std::uint16_t p_duty)
+void MotorDriver::set_pwm_duty(const pinout::Pin p_pwm_pin, const std::uint16_t p_duty)
 {
     LOG_TRACE("pin=%u duty=%u",
               static_cast<uint>(p_pwm_pin),
@@ -123,7 +123,7 @@ void MotorDriver::set_pwm_duty(const Pin p_pwm_pin, const std::uint16_t p_duty)
     pwm_set_gpio_level(p_pwm_pin, clamped_duty);
 }
 
-bool MotorDriver::is_known_pwm_pin(const Pin p_pwm_pin) const
+bool MotorDriver::is_known_pwm_pin(const pinout::Pin p_pwm_pin) const
 {
     return p_pwm_pin == m_pins.m_motor_a.m_pwm || p_pwm_pin == m_pins.m_motor_b.m_pwm;
 }
@@ -134,7 +134,7 @@ bool MotorDriver::is_drive_mode_reversal(const DriveMode p_current, const DriveM
            (p_current == DriveMode::Reverse && p_next == DriveMode::Forward);
 }
 
-void MotorDriver::set_motor(const MotorPins& p_pins,
+void MotorDriver::set_motor(const pinout::MotorPins& p_pins,
                             MotorState& p_motor,
                             const DriveMode p_drive_mode,
                             const std::uint16_t p_pwm_duty)

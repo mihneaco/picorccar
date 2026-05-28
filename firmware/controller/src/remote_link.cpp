@@ -12,7 +12,6 @@
 
 namespace
 {
-constexpr std::uint32_t ACCESS_POINT_AUTH_FOR_PASSWORD = CYW43_AUTH_WPA2_AES_PSK;
 constexpr std::uint32_t WIFI_CONNECT_TIMEOUT_MS = 10000;
 
 ip4_addr_t make_ipv4_address(const std::uint32_t p_address)
@@ -59,6 +58,8 @@ bool RemoteLink::init()
     {
         LOG_CRITICAL("CYW43 init failed: %d", cyw43_init_result);
         return false;
+
+        LOG_INFO("initializing CYW43");
     }
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
     m_cyw43_initialized = true;
@@ -72,14 +73,10 @@ bool RemoteLink::init()
         return false;
     }
 
-    const char* const access_point_password =
-        m_access_point_password != nullptr && m_access_point_password[0] != '\0' ? m_access_point_password : nullptr;
-    const char* const password_type = access_point_password != nullptr ? "WPA2-PSK" : "open";
-    LOG_INFO("connecting to AP ssid=%s auth=%s", m_access_point_ssid, password_type);
+    LOG_INFO("connecting to AP ssid=%s", m_access_point_ssid);
     const int connect_result = cyw43_arch_wifi_connect_timeout_ms(m_access_point_ssid,
-                                                                  access_point_password,
-                                                                  access_point_password != nullptr ? ACCESS_POINT_AUTH_FOR_PASSWORD
-                                                                                                   : CYW43_AUTH_OPEN,
+                                                                  m_access_point_password,
+                                                                  CYW43_AUTH_WPA2_AES_PSK,
                                                                   WIFI_CONNECT_TIMEOUT_MS);
     if (connect_result != PICO_OK)
     {

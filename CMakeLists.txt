@@ -42,17 +42,39 @@ if (NOT DEFINED LOGGING_THRESHOLD)
     set(LOGGING_THRESHOLD ULOG_INFO_LEVEL)
 endif()
 
-# @note this is insecure but fine for a personal project. Remove this and read from secure storage if you reuse this.
-set(PICORCCAR_WIFI_AP_SSID "PicoRCCar" CACHE STRING "Access point SSID used by the car firmware")
-set(PICORCCAR_WIFI_AP_PSK "brick-owl-69" CACHE STRING "Access point PSK used by the car firmware")
+set(PICORCCAR_WIFI_RANDOM_ALPHABET "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+set(PICORCCAR_WIFI_AP_SSID_LENGTH 16)
+set(PICORCCAR_WIFI_AP_PSK_LENGTH 32)
+if (NOT DEFINED PICORCCAR_WIFI_AP_SSID OR PICORCCAR_WIFI_AP_SSID STREQUAL "")
+    string(RANDOM
+           LENGTH ${PICORCCAR_WIFI_AP_SSID_LENGTH}
+           ALPHABET "${PICORCCAR_WIFI_RANDOM_ALPHABET}"
+           generated_picorccar_wifi_ap_ssid)
+    set(PICORCCAR_WIFI_AP_SSID
+        "${generated_picorccar_wifi_ap_ssid}"
+        CACHE STRING
+        "Generated access point SSID shared by the car and controller firmware"
+        FORCE)
+endif()
+if (NOT DEFINED PICORCCAR_WIFI_AP_PSK OR PICORCCAR_WIFI_AP_PSK STREQUAL "")
+    string(RANDOM
+           LENGTH ${PICORCCAR_WIFI_AP_PSK_LENGTH}
+           ALPHABET "${PICORCCAR_WIFI_RANDOM_ALPHABET}"
+           generated_picorccar_wifi_ap_psk)
+    set(PICORCCAR_WIFI_AP_PSKconfigure
+        "${generated_picorccar_wifi_ap_psk}"
+        CACHE STRING
+        "Generated WPA2 PSK shared by the car and controller firmware"
+        FORCE)
+endif()
 set(PICORCCAR_WIFI_AP_IP "192.168.4.1" CACHE STRING "Static IPv4 address used by the car access point")
 set(PICORCCAR_WIFI_STA_IP "192.168.4.2" CACHE STRING "Static IPv4 address used by the controller station")
 set(PICORCCAR_WIFI_NETMASK "255.255.255.0" CACHE STRING "Static IPv4 netmask used by both firmwares")
 set(PICORCCAR_UDP_SERVER_PORT "12345" CACHE STRING "UDP port used by the car command receiver")
 
 configure_file(
-    ${CMAKE_SOURCE_DIR}/firmware/include/common.h.in
-    ${CMAKE_BINARY_DIR}/generated/firmware/common.h
+    ${CMAKE_SOURCE_DIR}/firmware/include/network_conf.h.in
+    ${CMAKE_BINARY_DIR}/generated/firmware/network_conf.h
     @ONLY
 )
 

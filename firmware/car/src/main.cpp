@@ -1,7 +1,7 @@
 #include <cstdint>
 
-#include "common.h"
 #include "pico_logger.h"
+#include "network_conf.h"
 #include "motor_driver.h"
 #include "remote_link.h"
 
@@ -11,21 +11,6 @@
 
 namespace
 {
-// TB6612FNG pin mapping
-constexpr MotorDriver::Pin PWMA = 2;
-constexpr MotorDriver::Pin AIN2 = 3;
-constexpr MotorDriver::Pin AIN1 = 4;
-constexpr MotorDriver::Pin STBY = 5;
-constexpr MotorDriver::Pin BIN1 = 6;
-constexpr MotorDriver::Pin BIN2 = 7;
-constexpr MotorDriver::Pin PWMB = 8;
-
-constexpr MotorDriver::DriverPins MOTOR_DRIVER_PINS{
-    {AIN1, AIN2, PWMA},
-    {BIN1, BIN2, PWMB},
-    STBY
-};
-
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 constexpr std::uint32_t COMMAND_TIMEOUT_MS = 250;
 
@@ -70,7 +55,7 @@ int main()
     LOG_INFO("Logging initialized");
 
     LOG_INFO("Initializing Motor Driver");
-    MotorDriver motor_driver(MOTOR_DRIVER_PINS);
+    MotorDriver motor_driver(pinout::MOTOR_DRIVER_PINS);
     motor_driver.init();
     motor_driver.stop_all();
 

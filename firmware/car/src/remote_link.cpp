@@ -11,11 +11,6 @@
 #include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
 
-namespace
-{
-constexpr std::uint32_t AP_AUTH_FOR_PASSWORD = CYW43_AUTH_WPA2_AES_PSK;
-}
-
 RemoteLink::RemoteLink(const char* const p_access_point_ssid,
                        const char* const p_access_point_password,
                        const std::uint16_t p_port)
@@ -52,13 +47,10 @@ bool RemoteLink::init()
     m_cyw43_initialized = true;
 
     // Enable AP mode
-    const char* const access_point_password =
-        m_access_point_password != nullptr && m_access_point_password[0] != '\0' ? m_access_point_password : nullptr;
-    const char* const password_type = access_point_password != nullptr ? "WPA2-PSK" : "open";
-    LOG_INFO("starting AP ssid=%s auth=%s", m_access_point_ssid, password_type);
+    LOG_INFO("enabling AP mode");
     cyw43_arch_enable_ap_mode(m_access_point_ssid,
-                              access_point_password,
-                              access_point_password != nullptr ? AP_AUTH_FOR_PASSWORD : CYW43_AUTH_OPEN);
+                              m_access_point_password,
+                              CYW43_AUTH_WPA2_AES_PSK);
 
     // Bind server and set udp_recv cbk
     cyw43_arch_lwip_begin();
