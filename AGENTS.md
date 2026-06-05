@@ -26,6 +26,10 @@ Priorities:
 - Prefix class/struct members with `m_`.
 - Prefix function parameters with `p_`.
 - Do not prefix local variables.
+- Don’t extract a function just to name a block.
+  Extract when there is reuse, a real hardware/API boundary, a state-machine boundary, or a safety-critical operation that benefits from being isolated.
+  For one-off parsing/control flow, keep it local and comment the steps if needed.
+  Prefer fewer moving parts unless the current function is genuinely becoming hard to reason about.
 
 ## Build and validation
 - First inspect `CMakeLists.txt`, presets, and config headers.
@@ -69,10 +73,10 @@ Priorities:
 - Prefer monotonic timing and timeout-based state machines over long sleeps.
 - Do not let Wi-Fi connection logic, network retries, or CYW43/LWIP work starve motor safety handling.
 
-## Wi-Fi / Pico SDK
-- Use Pico SDK CYW43 APIs for Wi-Fi and LWIP for TCP/UDP.
+## BLE / Pico SDK
+- Use Pico SDK CYW43 APIs for BLE.
 - Avoid unnecessary coupling between motor-control timing and network code.
-- Boot must remain safe if Wi-Fi init fails or command source never appears.
+- Boot must remain safe if CYW43 init fails or command source never appears.
 
 ## Initialization and shutdown
 - Initialize motor-related outputs to a safe state before enabling the driver.

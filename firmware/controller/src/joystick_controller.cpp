@@ -45,7 +45,6 @@ bool JoystickController::init()
     adc_init();
     adc_gpio_init(m_pins.m_x_axis);
     adc_gpio_init(m_pins.m_y_axis);
-    m_initialized = true;
 
     const std::uint8_t x_axis_adc_input = pinout::gpio_to_adc_input(m_pins.m_x_axis);
     const std::uint8_t y_axis_adc_input = pinout::gpio_to_adc_input(m_pins.m_y_axis);
@@ -60,13 +59,6 @@ bool JoystickController::init()
 
 bool JoystickController::read(Sample& p_sample) const
 {
-    if (!m_initialized)
-    {
-        LOG_WARNING("Joystick read requested before initialization");
-        p_sample = {};
-        return false;
-    }
-
     p_sample.m_x_axis = read_adc_input(pinout::gpio_to_adc_input(m_pins.m_x_axis));
     p_sample.m_y_axis = read_adc_input(pinout::gpio_to_adc_input(m_pins.m_y_axis));
     return true;

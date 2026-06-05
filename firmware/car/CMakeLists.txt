@@ -12,13 +12,14 @@ target_compile_definitions(${PROJECT_NAME}
         ULOG_ENABLED
         ULOG_MAX_MESSAGE_LENGTH=1024
         LOGGING_THRESHOLD=${LOGGING_THRESHOLD}
+        PICORCCAR_BLE_PERIPHERAL=1
 )
 
-# This firmware uses AP mode without a DHCP server. Pin the AP IPv4 settings
-# explicitly so controller firmware can use a matching static client address.
-pico_configure_ip4_address(${PROJECT_NAME} PRIVATE CYW43_DEFAULT_IP_AP_ADDRESS "${PICORCCAR_WIFI_AP_IP}")
-pico_configure_ip4_address(${PROJECT_NAME} PRIVATE CYW43_DEFAULT_IP_AP_GATEWAY "${PICORCCAR_WIFI_AP_IP}")
-pico_configure_ip4_address(${PROJECT_NAME} PRIVATE CYW43_DEFAULT_IP_MASK "${PICORCCAR_WIFI_NETMASK}")
+pico_btstack_make_gatt_header(
+    ${PROJECT_NAME}
+    PRIVATE
+    ${PICORCCAR_BLE_GATT_FILE}
+)
 
 target_include_directories(${PROJECT_NAME}
     PRIVATE
@@ -29,9 +30,12 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
         picorccar_firmware_headers
+        picorccar_ble_headers
         picorccar_warnings
         pico_stdlib
-        pico_cyw43_arch_lwip_threadsafe_background
+        pico_cyw43_arch_none
+        pico_btstack_ble
+        pico_btstack_cyw43
         hardware_pwm
         hardware_gpio
 )

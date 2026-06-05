@@ -3,32 +3,32 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "lwip/ip_addr.h"
 #include "pico/critical_section.h"
-
-struct pbuf;
-struct udp_pcb;
 
 class RemoteLink
 {
 public:
-    static constexpr std::size_t MAX_PACKET_BYTES = 256;
+    static constexpr std::size_t MAX_PACKET_BYTES = 20;
+
+    enum class State : std::uint8_t
+    {
+        Uninitialized,
+        Advertising,
+        Connected,
+        Error
+    };
 
     struct Packet
     {
-        ip_addr_t remote_address{};
-        std::uint16_t remote_port = 0;
-        std::uint32_t received_ms = 0;
-        std::uint32_t overwritten_packets = 0;
-        std::uint16_t total_length = 0;
-        std::uint16_t copied_length = 0;
-        std::uint8_t payload[MAX_PACKET_BYTES]{};
-        bool truncated = false;
+        std::uint32_t m_received_ms = 0;
+        std::uint32_t m_overwritten_packets = 0;
+        std::uint16_t m_total_length = 0;
+        std::uint16_t m_copied_length = 0;
+        std::uint8_t m_payload[MAX_PACKET_BYTES]{};
+        bool m_truncated = false;
     };
 
-    RemoteLink(const char* p_access_point_ssid,
-               const char* p_access_point_password,
-               std::uint16_t p_port);
+    explicit RemoteLink(const char* p_device_name);
     ~RemoteLink();
 
     RemoteLink(const RemoteLink& p_other) = delete;
@@ -38,25 +38,49 @@ public:
 
     bool init();
     bool get_packet(Packet& p_packet);
+    State state() const;
+    bool is_connected() const;
 
 private:
-    void receive_callback(udp_pcb* p_pcb,
-                          pbuf* p_packet,
-                          const ip_addr_t* p_remote_address,
-                          std::uint16_t p_remote_port);
+    static constexpr std::uint16_t INVALID_CONNECTION_HANDLE = 0xffff;
+    static constexpr std::uint16_t INVALID_ATTRIBUTE_HANDLE = 0x0000;
+    static constexpr std::size_t MAX_ADVERTISING_DATA_BYTES = 31;
+
+    static void hci_packet_handler(std::uint8_t p_packet_type,
+                                   std::uint16_t p_channel,
+                                   std::uint8_t* p_packet,
+                                   std::uint16_t p_size);
+    static void att_packet_handler(std::uint8_t p_packet_type,
+                                   std::uint16_t p_channel,
+                                   std::uint8_t* p_packet,
+                                   std::uint16_t p_size);
+    static int att_write_callback(std::uint16_t p_connection_handle,
+                                  std::uint16_t p_attribute_handle,
+                                  std::uint16_t p_transaction_mode,
+                                  std::uint16_t p_offset,
+                                  std::uint8_t* p_buffer,
+                                  std::uint16_t p_buffer_size);
+
+    bool configure_advertising();
+    void handle_stack_ready();
+    void handle_connected(std::uint16_t p_connection_handle);
+    void handle_disconnected(std::uint16_t p_connection_handle);
+    void handle_write(std::uint16_t p_attribute_handle,
+                      const std::uint8_t* p_buffer,
+                      std::uint16_t p_buffer_size);
     void cleanup();
 
-    const char* m_access_point_ssid;
-    const char* m_access_point_password;
-
-    std::uint16_t m_server_port;
-
-    udp_pcb* m_udp_pcb = nullptr;
-    critical_section_t m_packet_lock{};
+    const char* m_device_name;
+    mutable critical_section_t m_lock{};
     Packet m_packet{};
     std::uint32_t m_overwritten_packets = 0;
-    // @details Use only with m_packet_lock locked
+    // @details Use only with m_lock locked
     bool m_has_packet = false;
+    std::uint16_t m_connection_handle = INVALID_CONNECTION_HANDLE;
+    std::uint16_t m_command_value_handle = INVALID_ATTRIBUTE_HANDLE;
+    State m_state = State::Uninitialized;
+    std::uint8_t m_advertising_data[MAX_ADVERTISING_DATA_BYTES]{};
+    std::uint8_t m_advertising_data_length = 0;
     bool m_initialized = false;
     bool m_cyw43_initialized = false;
 };

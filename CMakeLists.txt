@@ -1,30 +1,18 @@
 cmake_minimum_required(VERSION 3.28)
 
-if (CMAKE_GENERATOR STREQUAL "Ninja")
-    find_program(NINJA_EXECUTABLE NAMES ninja ninja-build)
-    if (NOT NINJA_EXECUTABLE)
-        message(FATAL_ERROR
-            "The selected CMake generator is 'Ninja', but no ninja executable was found. "
-            "Install the 'ninja' package or choose a different generator.")
-    endif()
-endif()
-
+# Load pico_sdk
 set(PICO_BOARD "pico2_w" CACHE STRING "Pico target board for this project")
-
 if (NOT DEFINED PICOTOOL_FETCH_FROM_GIT_PATH)
     if (DEFINED ENV{HOME})
         set(PICOTOOL_FETCH_FROM_GIT_PATH "$ENV{HOME}/pico-tool" CACHE PATH "Local picotool checkout path")
     endif()
 endif()
-
 if (NOT DEFINED PICO_SDK_PATH)
     if (DEFINED ENV{HOME})
         set(PICO_SDK_PATH "$ENV{HOME}/pico-sdk" CACHE PATH "Local pico-sdk checkout path")
     endif()
 endif()
-
 include(${PICO_SDK_PATH}/pico_sdk_init.cmake)
-
 set(MIN_PICO_SDK_VERSION "2.2.0")
 if (PICO_SDK_VERSION_STRING VERSION_LESS MIN_PICO_SDK_VERSION)
     message(FATAL_ERROR
@@ -32,6 +20,7 @@ if (PICO_SDK_VERSION_STRING VERSION_LESS MIN_PICO_SDK_VERSION)
         "Expected >= '${MIN_PICO_SDK_VERSION}'.")
 endif()
 
+# Must be defined before the call to pico_sdk_init()
 project(picorccar C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
@@ -41,42 +30,6 @@ pico_sdk_init()
 if (NOT DEFINED LOGGING_THRESHOLD)
     set(LOGGING_THRESHOLD ULOG_INFO_LEVEL)
 endif()
-
-set(PICORCCAR_WIFI_RANDOM_ALPHABET "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
-set(PICORCCAR_WIFI_AP_SSID_LENGTH 16)
-set(PICORCCAR_WIFI_AP_PSK_LENGTH 32)
-if (NOT DEFINED PICORCCAR_WIFI_AP_SSID OR PICORCCAR_WIFI_AP_SSID STREQUAL "")
-    string(RANDOM
-           LENGTH ${PICORCCAR_WIFI_AP_SSID_LENGTH}
-           ALPHABET "${PICORCCAR_WIFI_RANDOM_ALPHABET}"
-           generated_picorccar_wifi_ap_ssid)
-    set(PICORCCAR_WIFI_AP_SSID
-        "${generated_picorccar_wifi_ap_ssid}"
-        CACHE STRING
-        "Generated access point SSID shared by the car and controller firmware"
-        FORCE)
-endif()
-if (NOT DEFINED PICORCCAR_WIFI_AP_PSK OR PICORCCAR_WIFI_AP_PSK STREQUAL "")
-    string(RANDOM
-           LENGTH ${PICORCCAR_WIFI_AP_PSK_LENGTH}
-           ALPHABET "${PICORCCAR_WIFI_RANDOM_ALPHABET}"
-           generated_picorccar_wifi_ap_psk)
-    set(PICORCCAR_WIFI_AP_PSKconfigure
-        "${generated_picorccar_wifi_ap_psk}"
-        CACHE STRING
-        "Generated WPA2 PSK shared by the car and controller firmware"
-        FORCE)
-endif()
-set(PICORCCAR_WIFI_AP_IP "192.168.4.1" CACHE STRING "Static IPv4 address used by the car access point")
-set(PICORCCAR_WIFI_STA_IP "192.168.4.2" CACHE STRING "Static IPv4 address used by the controller station")
-set(PICORCCAR_WIFI_NETMASK "255.255.255.0" CACHE STRING "Static IPv4 netmask used by both firmwares")
-set(PICORCCAR_UDP_SERVER_PORT "12345" CACHE STRING "UDP port used by the car command receiver")
-
-configure_file(
-    ${CMAKE_SOURCE_DIR}/firmware/include/network_conf.h.in
-    ${CMAKE_BINARY_DIR}/generated/firmware/network_conf.h
-    @ONLY
-)
 
 # -Wall and -Wextra for subprojects
 add_library(picorccar_warnings INTERFACE)
@@ -92,7 +45,6 @@ endif()
 add_library(picorccar_firmware_headers INTERFACE)
 target_include_directories(picorccar_firmware_headers
     INTERFACE
-        ${CMAKE_BINARY_DIR}/generated/firmware
         ${CMAKE_SOURCE_DIR}/firmware/include
 )
 
@@ -105,5 +57,6 @@ if (DEFINED PICO_MOUNT_PATH)
     set(CMAKE_INSTALL_PREFIX "${PICO_MOUNT_PATH}" CACHE PATH "Install prefix for Pico UF2" FORCE)
 endif()
 
+add_subdirectory(firmware/ble)
 add_subdirectory(firmware/car)
 add_subdirectory(firmware/controller)

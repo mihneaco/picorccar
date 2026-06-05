@@ -1,0 +1,10 @@
+#pragma once
+
+#include <cstdint>
+
+namespace common
+{
+constexpr char BLE_DEVICE_NAME[] = "@PICORCCAR_BLE_DEVICE_NAME@";
+constexpr std::uint8_t BLE_SERVICE_UUID[16] = { @PICORCCAR_BLE_SERVICE_UUID_BYTES@ };
+constexpr std::uint8_t BLE_COMMAND_CHARACTERISTIC_UUID[16] = { @PICORCCAR_BLE_COMMAND_UUID_BYTES@ };
+}
