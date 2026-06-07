@@ -38,4 +38,5 @@ public:
 
 private:
     pinout::JoystickControllerPins m_pins;
+    bool m_initialized = false;
 };

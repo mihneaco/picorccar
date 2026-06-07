@@ -1,9 +1,10 @@
-#include "ble/ble_conf.h"
+#include "network_conf.h"
 #include "joystick_controller.h"
 #include "pinout.h"
 #include "pico_logger.h"
 #include "remote_link.h"
 
+#include "lwip/ip_addr.h"
 #include "pico/stdlib.h"
 
 namespace
@@ -25,8 +26,19 @@ int main()
             tight_loop_contents();
     }
 
+    ip_addr_t remote_address{};
+    if (!ipaddr_aton(common::UDP_SERVER_IP, &remote_address))
+    {
+        LOG_CRITICAL("Failed to parse UDP server IP '%s'", common::UDP_SERVER_IP);
+        while (true)
+            tight_loop_contents();
+    }
+
     LOG_INFO("Initializing Remote Link");
-    RemoteLink remote_link(common::BLE_DEVICE_NAME);
+    RemoteLink remote_link(common::ACCESS_POINT_SSID,
+                           common::ACCESS_POINT_PSK,
+                           remote_address,
+                           common::UDP_SERVER_PORT);
     if (!remote_link.init())
     {
         LOG_CRITICAL("Remote link initialization failed");
