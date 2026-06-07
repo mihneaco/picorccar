@@ -27,7 +27,6 @@ public:
     bool send_packet(const std::uint8_t* p_payload, std::size_t p_length);
 
 private:
-    bool configure_station_ip();
     void cleanup();
 
     const char* m_access_point_ssid;

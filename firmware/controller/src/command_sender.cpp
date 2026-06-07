@@ -13,13 +13,6 @@
 namespace
 {
 constexpr std::uint32_t WIFI_CONNECT_TIMEOUT_MS = 10000;
-
-ip4_addr_t make_ipv4_address(const std::uint32_t p_address)
-{
-    ip4_addr_t address{};
-    address.addr = PP_HTONL(p_address);
-    return address;
-}
 }
 
 CommandSender::CommandSender(const char* const p_access_point_ssid,
@@ -66,12 +59,20 @@ bool CommandSender::init()
 
     LOG_INFO("enabling STA mode");
     cyw43_arch_enable_sta_mode();
-
-    if (!configure_station_ip())
+    const ip4_addr_t station_address{
+        .addr = lwip_htonl(CYW43_DEFAULT_IP_MASK)};
+    const ip4_addr_t station_netmask{
+        .addr = lwip_htonl(CYW43_DEFAULT_IP_MASK)};
+    const ip4_addr_t station_gateway{
+        .addr = lwip_htonl(CYW43_DEFAULT_IP_STA_GATEWAY)};
+    cyw43_arch_lwip_begin();
     {
-        cleanup();
-        return false;
+        netif_set_addr(&cyw43_state.netif[CYW43_ITF_STA],
+                       &station_address,
+                       &station_netmask,
+                       &station_gateway);
     }
+    cyw43_arch_lwip_end();
 
     LOG_INFO("connecting to AP ssid=%s", m_access_point_ssid);
     const int connect_result = cyw43_arch_wifi_connect_timeout_ms(m_access_point_ssid,
@@ -172,41 +173,6 @@ bool CommandSender::send_packet(const std::uint8_t* const p_payload, const std::
         LOG_WARNING("udp_send failed: %d", static_cast<int>(send_result));
         return false;
     }
-
-    return true;
-}
-
-bool CommandSender::configure_station_ip()
-{
-    const ip4_addr_t station_address = make_ipv4_address(CYW43_DEFAULT_IP_STA_ADDRESS);
-    const ip4_addr_t station_netmask = make_ipv4_address(CYW43_DEFAULT_IP_MASK);
-    const ip4_addr_t station_gateway = make_ipv4_address(CYW43_DEFAULT_IP_STA_GATEWAY);
-
-    char station_address_str[IP4ADDR_STRLEN_MAX]{};
-    char station_netmask_str[IP4ADDR_STRLEN_MAX]{};
-    char station_gateway_str[IP4ADDR_STRLEN_MAX]{};
-    ip4addr_ntoa_r(&station_address, station_address_str, sizeof(station_address_str));
-    ip4addr_ntoa_r(&station_netmask, station_netmask_str, sizeof(station_netmask_str));
-    ip4addr_ntoa_r(&station_gateway, station_gateway_str, sizeof(station_gateway_str));
-
-    cyw43_arch_lwip_begin();
-    {
-#if LWIP_DHCP
-        // The car AP intentionally runs without DHCP, so the controller must
-        // drop the default DHCP client and pin a known-good static address.
-        dhcp_release_and_stop(&cyw43_state.netif[CYW43_ITF_STA]);
-#endif
-        netif_set_addr(&cyw43_state.netif[CYW43_ITF_STA],
-                       &station_address,
-                       &station_netmask,
-                       &station_gateway);
-    }
-    cyw43_arch_lwip_end();
-
-    LOG_INFO("configured STA IP=%s mask=%s gateway=%s",
-             station_address_str,
-             station_netmask_str,
-             station_gateway_str);
 
     return true;
 }
