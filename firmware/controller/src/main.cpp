@@ -2,7 +2,7 @@
 #include "joystick_controller.h"
 #include "pinout.h"
 #include "pico_logger.h"
-#include "remote_link.h"
+#include "command_sender.h"
 
 #include "lwip/ip_addr.h"
 #include "pico/stdlib.h"
@@ -34,14 +34,14 @@ int main()
             tight_loop_contents();
     }
 
-    LOG_INFO("Initializing Remote Link");
-    RemoteLink remote_link(common::ACCESS_POINT_SSID,
-                           common::ACCESS_POINT_PSK,
-                           remote_address,
-                           common::UDP_SERVER_PORT);
-    if (!remote_link.init())
+    LOG_INFO("Initializing Command Sender");
+    CommandSender command_sender(common::ACCESS_POINT_SSID,
+                                 common::ACCESS_POINT_PSK,
+                                 remote_address,
+                                 common::UDP_SERVER_PORT);
+    if (!command_sender.init())
     {
-        LOG_CRITICAL("Remote link initialization failed");
+        LOG_CRITICAL("Command sender initialization failed");
         while (true)
             tight_loop_contents();
     }

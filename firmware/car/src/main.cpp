@@ -3,7 +3,7 @@
 #include "pico_logger.h"
 #include "network_conf.h"
 #include "motor_driver.h"
-#include "remote_link.h"
+#include "command_receiver.h"
 
 // Pico SDK
 #include "lwip/ip_addr.h"
@@ -14,7 +14,7 @@ namespace
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 constexpr std::uint32_t COMMAND_TIMEOUT_MS = 250;
 
-void print_udp_packet(const RemoteLink::Packet& p_packet)
+void print_udp_packet(const CommandReceiver::Packet& p_packet)
 {
     char remote_address[IPADDR_STRLEN_MAX]{};
     ipaddr_ntoa_r(&p_packet.remote_address, remote_address, sizeof(remote_address));
@@ -59,13 +59,13 @@ int main()
     motor_driver.init();
     motor_driver.stop_all();
 
-    LOG_INFO("Initializing Remote Link");
-    RemoteLink remote_link(common::ACCESS_POINT_SSID,
-                           common::ACCESS_POINT_PSK,
-                           common::UDP_SERVER_PORT);
-    if (!remote_link.init())
+    LOG_INFO("Initializing Command Receiver");
+    CommandReceiver command_receiver(common::ACCESS_POINT_SSID,
+                                     common::ACCESS_POINT_PSK,
+                                     common::UDP_SERVER_PORT);
+    if (!command_receiver.init())
     {
-        LOG_CRITICAL("Remote link initialization failed");
+        LOG_CRITICAL("Command receiver initialization failed");
         motor_driver.set_standby(false);
         while (true)
             tight_loop_contents();
@@ -73,7 +73,7 @@ int main()
 
     // #### MAIN LOOP ####
     LOG_INFO("Starting MAIN loop");
-    RemoteLink::Packet latest_packet{};
+    CommandReceiver::Packet latest_packet{};
     std::uint32_t last_packet_ms{to_ms_since_boot(get_absolute_time())};
     while (true)
     {
@@ -81,7 +81,7 @@ int main()
             @todo - Add motor-command decoding, command timeout and failsafe updates.
         */
 
-        auto res = remote_link.get_packet(latest_packet);
+        auto res = command_receiver.get_packet(latest_packet);
         if (res)
         {
             last_packet_ms = latest_packet.received_ms;

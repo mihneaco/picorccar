@@ -1,4 +1,4 @@
-#include "remote_link.h"
+#include "command_sender.h"
 
 #include "pico_logger.h"
 
@@ -22,10 +22,10 @@ ip4_addr_t make_ipv4_address(const std::uint32_t p_address)
 }
 }
 
-RemoteLink::RemoteLink(const char* const p_access_point_ssid,
-                       const char* const p_access_point_password,
-                       const ip_addr_t& p_remote_address,
-                       const std::uint16_t p_remote_port)
+CommandSender::CommandSender(const char* const p_access_point_ssid,
+                             const char* const p_access_point_password,
+                             const ip_addr_t& p_remote_address,
+                             const std::uint16_t p_remote_port)
     : m_access_point_ssid(p_access_point_ssid),
       m_access_point_password(p_access_point_password),
       m_remote_address(p_remote_address),
@@ -33,22 +33,22 @@ RemoteLink::RemoteLink(const char* const p_access_point_ssid,
 {
 }
 
-RemoteLink::~RemoteLink()
+CommandSender::~CommandSender()
 {
     cleanup();
 }
 
-bool RemoteLink::init()
+bool CommandSender::init()
 {
     if (m_initialized)
     {
-        LOG_WARNING("Remote link already initialized");
+        LOG_WARNING("Command sender already initialized");
         return true;
     }
 
     if (!IP_IS_V4_VAL(m_remote_address))
     {
-        LOG_CRITICAL("Remote link currently supports only IPv4 destinations");
+        LOG_CRITICAL("Command sender currently supports only IPv4 destinations");
         return false;
     }
 
@@ -113,15 +113,15 @@ bool RemoteLink::init()
     cyw43_arch_lwip_end();
 
     m_initialized = true;
-    LOG_INFO("Remote link ready for UDP %s:%u", remote_address, static_cast<unsigned>(m_remote_port));
+    LOG_INFO("Command sender ready for UDP %s:%u", remote_address, static_cast<unsigned>(m_remote_port));
     return true;
 }
 
-bool RemoteLink::send_packet(const std::uint8_t* const p_payload, const std::size_t p_length)
+bool CommandSender::send_packet(const std::uint8_t* const p_payload, const std::size_t p_length)
 {
     if (!m_initialized || m_udp_pcb == nullptr)
     {
-        LOG_WARNING("Remote link send requested before initialization");
+        LOG_WARNING("Command sender send requested before initialization");
         return false;
     }
 
@@ -176,7 +176,7 @@ bool RemoteLink::send_packet(const std::uint8_t* const p_payload, const std::siz
     return true;
 }
 
-bool RemoteLink::configure_station_ip()
+bool CommandSender::configure_station_ip()
 {
     const ip4_addr_t station_address = make_ipv4_address(CYW43_DEFAULT_IP_STA_ADDRESS);
     const ip4_addr_t station_netmask = make_ipv4_address(CYW43_DEFAULT_IP_MASK);
@@ -211,7 +211,7 @@ bool RemoteLink::configure_station_ip()
     return true;
 }
 
-void RemoteLink::cleanup()
+void CommandSender::cleanup()
 {
     if (!m_initialized && m_udp_pcb == nullptr && !m_cyw43_initialized)
         return;

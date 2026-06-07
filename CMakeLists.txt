@@ -10,21 +10,17 @@ if (CMAKE_GENERATOR STREQUAL "Ninja")
 endif()
 
 set(PICO_BOARD "pico2_w" CACHE STRING "Pico target board for this project")
-
 if (NOT DEFINED PICOTOOL_FETCH_FROM_GIT_PATH)
     if (DEFINED ENV{HOME})
         set(PICOTOOL_FETCH_FROM_GIT_PATH "$ENV{HOME}/pico-tool" CACHE PATH "Local picotool checkout path")
     endif()
 endif()
-
 if (NOT DEFINED PICO_SDK_PATH)
     if (DEFINED ENV{HOME})
         set(PICO_SDK_PATH "$ENV{HOME}/pico-sdk" CACHE PATH "Local pico-sdk checkout path")
     endif()
 endif()
-
 include(${PICO_SDK_PATH}/pico_sdk_init.cmake)
-
 set(MIN_PICO_SDK_VERSION "2.2.0")
 if (PICO_SDK_VERSION_STRING VERSION_LESS MIN_PICO_SDK_VERSION)
     message(FATAL_ERROR

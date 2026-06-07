@@ -1,4 +1,4 @@
-#include "remote_link.h"
+#include "command_receiver.h"
 
 #include "pico_logger.h"
 
@@ -11,9 +11,9 @@
 #include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
 
-RemoteLink::RemoteLink(const char* const p_access_point_ssid,
-                       const char* const p_access_point_password,
-                       const std::uint16_t p_port)
+CommandReceiver::CommandReceiver(const char* const p_access_point_ssid,
+                                 const char* const p_access_point_password,
+                                 const std::uint16_t p_port)
     : m_access_point_ssid(p_access_point_ssid),
       m_access_point_password(p_access_point_password),
       m_server_port(p_port)
@@ -21,17 +21,17 @@ RemoteLink::RemoteLink(const char* const p_access_point_ssid,
     critical_section_init(&m_packet_lock);
 }
 
-RemoteLink::~RemoteLink()
+CommandReceiver::~CommandReceiver()
 {
     cleanup();
     critical_section_deinit(&m_packet_lock);
 }
 
-bool RemoteLink::init()
+bool CommandReceiver::init()
 {
     if (m_initialized)
     {
-        LOG_WARNING("Remote link already initialized");
+        LOG_WARNING("Command receiver already initialized");
         return true;
     }
 
@@ -81,7 +81,7 @@ bool RemoteLink::init()
                                             const ip_addr_t* p_remote_address,
                                             u16_t p_remote_port)
                                            {
-                                                auto* const this_ref = static_cast<RemoteLink*>(p_arg);
+                                                auto* const this_ref = static_cast<CommandReceiver*>(p_arg);
                                                 if (this_ref != nullptr)
                                                     this_ref->receive_callback(p_pcb,
                                                                                p_packet,
@@ -95,14 +95,14 @@ bool RemoteLink::init()
     cyw43_arch_lwip_end();
 
     m_initialized = true;
-    LOG_INFO("Remote link listening on UDP port %u", static_cast<unsigned>(m_server_port));
+    LOG_INFO("Command receiver listening on UDP port %u", static_cast<unsigned>(m_server_port));
     return true;
 }
 
-void RemoteLink::receive_callback(udp_pcb* p_pcb,
-                                  pbuf* p_packet,
-                                  const ip_addr_t* p_remote_address,
-                                  u16_t p_remote_port)
+void CommandReceiver::receive_callback(udp_pcb* p_pcb,
+                                       pbuf* p_packet,
+                                       const ip_addr_t* p_remote_address,
+                                       u16_t p_remote_port)
 {
     (void)p_pcb;
 
@@ -135,7 +135,7 @@ void RemoteLink::receive_callback(udp_pcb* p_pcb,
     critical_section_exit(&m_packet_lock);
 }
 
-bool RemoteLink::get_packet(Packet& p_packet)
+bool CommandReceiver::get_packet(Packet& p_packet)
 {
     bool has_packet = false;
 
@@ -154,7 +154,7 @@ bool RemoteLink::get_packet(Packet& p_packet)
     return has_packet;
 }
 
-void RemoteLink::cleanup()
+void CommandReceiver::cleanup()
 {
     if (!m_initialized && m_udp_pcb == nullptr && !m_cyw43_initialized)
         return;

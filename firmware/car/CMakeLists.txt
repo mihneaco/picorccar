@@ -3,7 +3,7 @@ project(picorccar_car NONE)
 add_executable(${PROJECT_NAME}
     src/motor_driver.cpp
     src/main.cpp
-    src/remote_link.cpp
+    src/command_receiver.cpp
     ${CMAKE_SOURCE_DIR}/third_party/ulog/ulog.c
 )
 

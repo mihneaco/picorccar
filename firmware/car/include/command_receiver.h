@@ -9,7 +9,7 @@
 struct pbuf;
 struct udp_pcb;
 
-class RemoteLink
+class CommandReceiver
 {
 public:
     static constexpr std::size_t MAX_PACKET_BYTES = 256;
@@ -26,15 +26,15 @@ public:
         bool truncated = false;
     };
 
-    RemoteLink(const char* p_access_point_ssid,
-               const char* p_access_point_password,
-               std::uint16_t p_port);
-    ~RemoteLink();
+    CommandReceiver(const char* p_access_point_ssid,
+                    const char* p_access_point_password,
+                    std::uint16_t p_port);
+    ~CommandReceiver();
 
-    RemoteLink(const RemoteLink& p_other) = delete;
-    RemoteLink(RemoteLink&& p_other) = delete;
-    RemoteLink& operator=(const RemoteLink& p_other) = delete;
-    RemoteLink& operator=(RemoteLink&& p_other) = delete;
+    CommandReceiver(const CommandReceiver& p_other) = delete;
+    CommandReceiver(CommandReceiver&& p_other) = delete;
+    CommandReceiver& operator=(const CommandReceiver& p_other) = delete;
+    CommandReceiver& operator=(CommandReceiver&& p_other) = delete;
 
     bool init();
     bool get_packet(Packet& p_packet);
