@@ -1,7 +1,6 @@
 #include <cstdint>
 
 #include "pico_logger.h"
-#include "network_conf.h"
 #include "motor_driver.h"
 #include "command_receiver.h"
 
@@ -11,6 +10,9 @@
 
 namespace
 {
+constexpr char ACCESS_POINT_SSID[] = PICORCCAR_ACCESS_POINT_SSID;
+constexpr char ACCESS_POINT_PSK[] = PICORCCAR_ACCESS_POINT_PSK;
+constexpr std::uint16_t UDP_SERVER_PORT = PICORCCAR_UDP_SERVER_PORT;
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 constexpr std::uint32_t COMMAND_TIMEOUT_MS = 250;
 
@@ -60,9 +62,9 @@ int main()
     motor_driver.stop_all();
 
     LOG_INFO("Initializing Command Receiver");
-    CommandReceiver command_receiver(common::ACCESS_POINT_SSID,
-                                     common::ACCESS_POINT_PSK,
-                                     common::UDP_SERVER_PORT);
+    CommandReceiver command_receiver(ACCESS_POINT_SSID,
+                                     ACCESS_POINT_PSK,
+                                     UDP_SERVER_PORT);
     if (!command_receiver.init())
     {
         LOG_CRITICAL("Command receiver initialization failed");

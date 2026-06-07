@@ -1,4 +1,3 @@
-#include "network_conf.h"
 #include "joystick_controller.h"
 #include "pinout.h"
 #include "pico_logger.h"
@@ -9,6 +8,10 @@
 
 namespace
 {
+constexpr char ACCESS_POINT_SSID[] = PICORCCAR_ACCESS_POINT_SSID;
+constexpr char ACCESS_POINT_PSK[] = PICORCCAR_ACCESS_POINT_PSK;
+constexpr char UDP_SERVER_IP[] = PICORCCAR_UDP_SERVER_IP;
+constexpr std::uint16_t UDP_SERVER_PORT = PICORCCAR_UDP_SERVER_PORT;
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 1000;
 }
 
@@ -27,18 +30,18 @@ int main()
     }
 
     ip_addr_t remote_address{};
-    if (!ipaddr_aton(common::UDP_SERVER_IP, &remote_address))
+    if (!ipaddr_aton(UDP_SERVER_IP, &remote_address))
     {
-        LOG_CRITICAL("Failed to parse UDP server IP '%s'", common::UDP_SERVER_IP);
+        LOG_CRITICAL("Failed to parse UDP server IP '%s'", UDP_SERVER_IP);
         while (true)
             tight_loop_contents();
     }
 
     LOG_INFO("Initializing Command Sender");
-    CommandSender command_sender(common::ACCESS_POINT_SSID,
-                                 common::ACCESS_POINT_PSK,
+    CommandSender command_sender(ACCESS_POINT_SSID,
+                                 ACCESS_POINT_PSK,
                                  remote_address,
-                                 common::UDP_SERVER_PORT);
+                                 UDP_SERVER_PORT);
     if (!command_sender.init())
     {
         LOG_CRITICAL("Command sender initialization failed");

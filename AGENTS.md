@@ -26,6 +26,11 @@ Priorities:
 - Prefix class/struct members with `m_`.
 - Prefix function parameters with `p_`.
 - Do not prefix local variables.
+- Don’t extract a function just to name a block.
+  Extract when there is reuse, a real hardware/API boundary, a state-machine boundary, or a safety-critical operation that benefits from being isolated.
+  For one-off parsing/control flow, keep it local and comment the steps if needed.
+  Prefer fewer moving parts unless the current function is genuinely becoming hard to reason about.
+- Call out obvious mistakes and suggest a fix, dont write code to work around them.
 
 ## Build and validation
 - First inspect `CMakeLists.txt`, presets, and config headers.

@@ -60,7 +60,7 @@ bool CommandSender::init()
     LOG_INFO("enabling STA mode");
     cyw43_arch_enable_sta_mode();
     const ip4_addr_t station_address{
-        .addr = lwip_htonl(CYW43_DEFAULT_IP_MASK)};
+        .addr = lwip_htonl(CYW43_DEFAULT_IP_STA_ADDRESS)};
     const ip4_addr_t station_netmask{
         .addr = lwip_htonl(CYW43_DEFAULT_IP_MASK)};
     const ip4_addr_t station_gateway{
