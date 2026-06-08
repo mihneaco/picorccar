@@ -1,11 +1,10 @@
 #include <cstdint>
 
-#include "pico_logger.h"
+#include "picorccar/pico_logger.h"
 #include "motor_driver.h"
 #include "command_receiver.h"
 
 // Pico SDK
-#include "lwip/ip_addr.h"
 #include "pico/stdlib.h"
 
 namespace
@@ -16,28 +15,10 @@ constexpr std::uint16_t UDP_SERVER_PORT = PICORCCAR_UDP_SERVER_PORT;
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 constexpr std::uint32_t COMMAND_TIMEOUT_MS = 250;
 
-void print_udp_packet(const CommandReceiver::Packet& p_packet)
+void print_udp_packet(const CommandReceiver::ReceivedCommand& p_received_command)
 {
-    char remote_address[IPADDR_STRLEN_MAX]{};
-    ipaddr_ntoa_r(&p_packet.remote_address, remote_address, sizeof(remote_address));
-
-    if (p_packet.truncated)
-    {
-        LOG_TRACE("UDP packet from %s:%u len=%u copied=%u overwritten=%lu",
-                  remote_address,
-                  static_cast<unsigned>(p_packet.remote_port),
-                  static_cast<unsigned>(p_packet.total_length),
-                  static_cast<unsigned>(p_packet.copied_length),
-                  static_cast<unsigned long>(p_packet.overwritten_packets));
-    }
-    else
-    {
-        LOG_TRACE("UDP packet from %s:%u len=%u overwritten=%lu",
-                  remote_address,
-                  static_cast<unsigned>(p_packet.remote_port),
-                  static_cast<unsigned>(p_packet.total_length),
-                  static_cast<unsigned long>(p_packet.overwritten_packets));
-    }
+    LOG_TRACE("UDP packet sent_ms=%lu",
+              static_cast<unsigned long>(p_received_command.sent_ms));
 }
 }
 
@@ -75,7 +56,7 @@ int main()
 
     // #### MAIN LOOP ####
     LOG_INFO("Starting MAIN loop");
-    CommandReceiver::Packet latest_packet{};
+    CommandReceiver::ReceivedCommand latest_received_command{};
     std::uint32_t last_packet_ms{to_ms_since_boot(get_absolute_time())};
     while (true)
     {
@@ -83,11 +64,11 @@ int main()
             @todo - Add motor-command decoding, command timeout and failsafe updates.
         */
 
-        auto res = command_receiver.get_packet(latest_packet);
+        auto res = command_receiver.get_packet(latest_received_command);
         if (res)
         {
-            last_packet_ms = latest_packet.received_ms;
-            print_udp_packet(latest_packet);
+            last_packet_ms = latest_received_command.received_ms;
+            print_udp_packet(latest_received_command);
         }
 
         const std::uint32_t packet_age_ms = to_ms_since_boot(get_absolute_time()) - last_packet_ms;

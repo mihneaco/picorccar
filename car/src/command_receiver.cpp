@@ -1,8 +1,5 @@
 #include "command_receiver.h"
-
-#include "pico_logger.h"
-
-#include <algorithm>
+#include "picorccar/pico_logger.h"
 
 #include "cyw43.h"
 #include "lwip/err.h"
@@ -76,17 +73,17 @@ bool CommandReceiver::init()
         }
 
         const udp_recv_fn receive_cbk = [] (void* p_arg,
-                                            udp_pcb* p_pcb,
+                                           udp_pcb* p_pcb,
                                             pbuf* p_packet,
                                             const ip_addr_t* p_remote_address,
                                             u16_t p_remote_port)
                                            {
+                                                (void)p_pcb;
+                                                (void)p_remote_address;
+                                                (void)p_remote_port;
                                                 auto* const this_ref = static_cast<CommandReceiver*>(p_arg);
                                                 if (this_ref != nullptr)
-                                                    this_ref->receive_callback(p_pcb,
-                                                                               p_packet,
-                                                                               p_remote_address,
-                                                                               p_remote_port);
+                                                    this_ref->receive_callback(p_packet);
                                                 else if (p_packet != nullptr)
                                                     pbuf_free(p_packet);
                                            };
@@ -99,43 +96,50 @@ bool CommandReceiver::init()
     return true;
 }
 
-void CommandReceiver::receive_callback(udp_pcb* p_pcb,
-                                       pbuf* p_packet,
-                                       const ip_addr_t* p_remote_address,
-                                       u16_t p_remote_port)
+void CommandReceiver::receive_callback(pbuf* p_packet)
 {
-    (void)p_pcb;
-
     if (p_packet == nullptr)
         return;
 
-    Packet latest_packet{};
-    if (p_remote_address != nullptr)
-        latest_packet.remote_address = *p_remote_address;
-    latest_packet.remote_port = p_remote_port;
-    latest_packet.received_ms = to_ms_since_boot(get_absolute_time());
-    latest_packet.total_length = p_packet->tot_len;
-    latest_packet.copied_length = static_cast<std::uint16_t>(
-        std::min<std::size_t>(p_packet->tot_len, MAX_PACKET_BYTES));
-    latest_packet.truncated = latest_packet.copied_length < latest_packet.total_length;
+    if (p_packet->tot_len != protocol::COMMAND_PACKET_SIZE)
+    {
+        LOG_WARNING("Ignoring UDP packet with unexpected length: got=%u expected=%u",
+                    static_cast<unsigned>(p_packet->tot_len),
+                    static_cast<unsigned>(protocol::COMMAND_PACKET_SIZE));
+        pbuf_free(p_packet);
+        return;
+    }
 
-    if (latest_packet.copied_length > 0)
-        pbuf_copy_partial(p_packet, latest_packet.payload, latest_packet.copied_length, 0);
+    protocol::CmdPacket cmd_packet{};
+    ReceivedCommand latest_received_command{};
+    latest_received_command.received_ms = to_ms_since_boot(get_absolute_time());
+    const u16_t copied_bytes = pbuf_copy_partial(p_packet,
+                                                 &cmd_packet,
+                                                 static_cast<u16_t>(protocol::COMMAND_PACKET_SIZE),
+                                                 0);
 
     pbuf_free(p_packet);
 
+    if (copied_bytes != protocol::COMMAND_PACKET_SIZE)
+    {
+        LOG_WARNING("Ignoring UDP packet with incomplete copy: got=%u expected=%u",
+                    static_cast<unsigned>(copied_bytes),
+                    static_cast<unsigned>(protocol::COMMAND_PACKET_SIZE));
+        return;
+    }
+
+    latest_received_command.sent_ms = cmd_packet.m_sent_us / 1000u;
+    latest_received_command.m_ctrl_state = cmd_packet.m_state;
+
     critical_section_enter_blocking(&m_packet_lock);
     {
-        if (m_has_packet)
-            ++m_overwritten_packets;
-        latest_packet.overwritten_packets = m_overwritten_packets;
-        m_packet = latest_packet;
+        m_received_command = latest_received_command;
         m_has_packet = true;
     }
     critical_section_exit(&m_packet_lock);
 }
 
-bool CommandReceiver::get_packet(Packet& p_packet)
+bool CommandReceiver::get_packet(ReceivedCommand& p_received_command)
 {
     bool has_packet = false;
 
@@ -144,9 +148,8 @@ bool CommandReceiver::get_packet(Packet& p_packet)
         has_packet = m_has_packet;
         if (has_packet)
         {
-            p_packet = m_packet;
+            p_received_command = m_received_command;
             m_has_packet = false;
-            m_overwritten_packets = 0;
         }
     }
     critical_section_exit(&m_packet_lock);

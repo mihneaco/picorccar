@@ -1,6 +1,6 @@
 #pragma once
 
-#include "pinout_common.h"
+#include "picorccar/pinout_common.h"
 
 namespace pinout
 {

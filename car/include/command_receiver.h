@@ -3,8 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "lwip/ip_addr.h"
 #include "pico/critical_section.h"
+
+#include "picorccar/protocol.h"
 
 struct pbuf;
 struct udp_pcb;
@@ -12,18 +13,11 @@ struct udp_pcb;
 class CommandReceiver
 {
 public:
-    static constexpr std::size_t MAX_PACKET_BYTES = 256;
-
-    struct Packet
+    struct ReceivedCommand
     {
-        ip_addr_t remote_address{};
-        std::uint16_t remote_port = 0;
         std::uint32_t received_ms = 0;
-        std::uint32_t overwritten_packets = 0;
-        std::uint16_t total_length = 0;
-        std::uint16_t copied_length = 0;
-        std::uint8_t payload[MAX_PACKET_BYTES]{};
-        bool truncated = false;
+        std::uint32_t sent_ms     = 0;
+        protocol::CtrlState m_ctrl_state{};
     };
 
     CommandReceiver(const char* p_access_point_ssid,
@@ -37,13 +31,10 @@ public:
     CommandReceiver& operator=(CommandReceiver&& p_other) = delete;
 
     bool init();
-    bool get_packet(Packet& p_packet);
+    bool get_packet(ReceivedCommand& p_received_command);
 
 private:
-    void receive_callback(udp_pcb* p_pcb,
-                          pbuf* p_packet,
-                          const ip_addr_t* p_remote_address,
-                          std::uint16_t p_remote_port);
+    void receive_callback(pbuf* p_packet);
     void cleanup();
 
     const char* m_access_point_ssid;
@@ -53,8 +44,7 @@ private:
 
     udp_pcb* m_udp_pcb = nullptr;
     critical_section_t m_packet_lock{};
-    Packet m_packet{};
-    std::uint32_t m_overwritten_packets = 0;
+    ReceivedCommand m_received_command{};
     // @details Use only with m_packet_lock locked
     bool m_has_packet = false;
     bool m_initialized = false;

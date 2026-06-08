@@ -73,7 +73,7 @@ endif()
 add_library(picorccar_firmware_headers INTERFACE)
 target_include_directories(picorccar_firmware_headers
     INTERFACE
-        ${CMAKE_SOURCE_DIR}/firmware/include
+        ${CMAKE_SOURCE_DIR}/include
 )
 
 if (NOT DEFINED PICO_MOUNT_PATH)
@@ -85,5 +85,5 @@ if (DEFINED PICO_MOUNT_PATH)
     set(CMAKE_INSTALL_PREFIX "${PICO_MOUNT_PATH}" CACHE PATH "Install prefix for Pico UF2" FORCE)
 endif()
 
-add_subdirectory(firmware/car)
-add_subdirectory(firmware/controller)
+add_subdirectory(car)
+add_subdirectory(controller)
