@@ -5,35 +5,41 @@
 
 namespace protocol
 {
+inline constexpr std::uint8_t SESSION_HELLO_PACKET_COUNT = 3;
+inline constexpr std::size_t CTRL_STATE_WIRE_SIZE = sizeof(std::uint8_t) + (2 * sizeof(std::uint16_t));
 
 struct CtrlState
 {
+    bool m_bpressed{false};
     std::uint16_t m_x_axis{0};
     std::uint16_t m_y_axis{0};
-    bool          m_bpressed{false};
 };
 
-struct CmdPacket
+struct WirePacket
 {
-    CtrlState     m_state{};
-    std::uint32_t m_sent_us{0};
-    std::uint32_t m_session_id{0};
-    std::uint32_t m_session_ms{0};
-};
-inline constexpr std::size_t COMMAND_PACKET_SIZE = sizeof(CmdPacket);
-
-struct HskPacket
-{
-    enum class Type : std::uint8_t
+    enum class Mode : std::uint8_t
     {
-        CLIENT_HELLO = 0,
-        SERVER_HELLO = 1,
+        COMMAND = 0,
+        HELLO = 1,
         LAST
     };
 
-    Type m_mode{Type::LAST};
-    std::uint32_t m_session_id{0};
-    std::uint32_t m_boot_ms{0};
+    Mode          m_mode {Mode::LAST};
+    std::uint32_t m_session_id {0};
+    std::uint32_t m_session_ms {0};
+    std::uint8_t  m_payload[CTRL_STATE_WIRE_SIZE] {};
 };
 
-} // namespace packet
+inline constexpr std::size_t WIRE_PACKET_PAYLOAD_SIZE = CTRL_STATE_WIRE_SIZE;
+inline constexpr std::size_t WIRE_PACKET_SIZE =
+    sizeof(std::uint8_t) + sizeof(std::uint32_t) + sizeof(std::uint32_t) + WIRE_PACKET_PAYLOAD_SIZE;
+
+void serialize_ctrl_state(const CtrlState& p_ctrl_state, std::uint8_t* p_destination);
+
+CtrlState deserialize_ctrl_state(const std::uint8_t* p_source);
+
+void serialize_wire_packet(const WirePacket& p_packet, std::uint8_t* p_destination);
+
+WirePacket deserialize_wire_packet(const std::uint8_t* p_source);
+
+} // namespace protocol

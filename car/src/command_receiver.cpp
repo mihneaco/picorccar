@@ -1,5 +1,8 @@
 #include "command_receiver.h"
+
 #include "picorccar/logger.h"
+
+#include <cstring>
 
 // pico_sdk
 #include "cyw43.h"
@@ -102,35 +105,80 @@ void CommandReceiver::receive_callback(pbuf* p_packet)
     if (p_packet == nullptr)
         return;
 
-    if (p_packet->tot_len != protocol::COMMAND_PACKET_SIZE)
+    if (p_packet->tot_len != protocol::WIRE_PACKET_SIZE)
     {
         LOG_WARNING("Ignoring UDP packet with unexpected length: got=%u expected=%u",
                     static_cast<unsigned>(p_packet->tot_len),
-                    static_cast<unsigned>(protocol::COMMAND_PACKET_SIZE));
+                    static_cast<unsigned>(protocol::WIRE_PACKET_SIZE));
         pbuf_free(p_packet);
         return;
     }
 
-    protocol::CmdPacket cmd_packet{};
-    ReceivedCommand latest_received_command{};
-    latest_received_command.received_ms = to_ms_since_boot(get_absolute_time());
+    std::uint8_t payload[protocol::WIRE_PACKET_SIZE] {};
     const u16_t copied_bytes = pbuf_copy_partial(p_packet,
-                                                 &cmd_packet,
-                                                 static_cast<u16_t>(protocol::COMMAND_PACKET_SIZE),
+                                                 payload,
+                                                 static_cast<u16_t>(protocol::WIRE_PACKET_SIZE),
                                                  0);
 
     pbuf_free(p_packet);
 
-    if (copied_bytes != protocol::COMMAND_PACKET_SIZE)
+    if (copied_bytes != protocol::WIRE_PACKET_SIZE)
     {
         LOG_WARNING("Ignoring UDP packet with incomplete copy: got=%u expected=%u",
                     static_cast<unsigned>(copied_bytes),
-                    static_cast<unsigned>(protocol::COMMAND_PACKET_SIZE));
+                    static_cast<unsigned>(protocol::WIRE_PACKET_SIZE));
         return;
     }
 
-    latest_received_command.sent_ms = cmd_packet.m_sent_us / 1000u;
-    latest_received_command.m_ctrl_state = cmd_packet.m_state;
+    const protocol::WirePacket packet = protocol::deserialize_wire_packet(payload);
+    const auto mode = packet.m_mode;
+    const std::uint32_t session_id = packet.m_session_id;
+
+    if (mode == protocol::WirePacket::Mode::HELLO)
+    {
+        critical_section_enter_blocking(&m_packet_lock);
+        {
+            if (!m_session_armed)
+            {
+                if (session_id == m_pending_session_id)
+                    ++m_pending_hello_count;
+                else
+                {
+                    m_pending_session_id = session_id;
+                    m_pending_hello_count = 1;
+                }
+
+                if (m_pending_hello_count >= protocol::SESSION_HELLO_PACKET_COUNT)
+                {
+                    m_active_session_id = session_id;
+                    m_pending_session_id = session_id;
+                    m_pending_hello_count = 0;
+                    m_session_armed = true;
+                    m_has_packet = false;
+                }
+            }
+        }
+        critical_section_exit(&m_packet_lock);
+        return;
+    }
+
+    if (mode != protocol::WirePacket::Mode::COMMAND)
+    {
+        LOG_DEBUG("Ignoring non-command packet mode=%u",
+                  static_cast<unsigned>(mode));
+        return;
+    }
+
+    critical_section_enter_blocking(&m_packet_lock);
+    const bool accept_command = m_session_armed && session_id == m_active_session_id;
+    critical_section_exit(&m_packet_lock);
+    if (!accept_command)
+        return;
+
+    ReceivedCommand latest_received_command{};
+    latest_received_command.m_received_ms = to_ms_since_boot(get_absolute_time());
+    latest_received_command.m_sent_ms = packet.m_session_ms;
+    latest_received_command.m_ctrl_state = protocol::deserialize_ctrl_state(packet.m_payload);
 
     critical_section_enter_blocking(&m_packet_lock);
     {
@@ -156,6 +204,19 @@ bool CommandReceiver::get_packet(ReceivedCommand& p_received_command)
     critical_section_exit(&m_packet_lock);
 
     return has_packet;
+}
+
+void CommandReceiver::reset_session()
+{
+    critical_section_enter_blocking(&m_packet_lock);
+    {
+        m_has_packet = false;
+        m_active_session_id = 0;
+        m_pending_session_id = 0;
+        m_pending_hello_count = 0;
+        m_session_armed = false;
+    }
+    critical_section_exit(&m_packet_lock);
 }
 
 void CommandReceiver::cleanup()

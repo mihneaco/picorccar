@@ -15,9 +15,9 @@ class CommandReceiver
 public:
     struct ReceivedCommand
     {
-        std::uint32_t received_ms = 0;
-        std::uint32_t sent_ms     = 0;
-        protocol::CtrlState m_ctrl_state{};
+        protocol::CtrlState m_ctrl_state   {};
+        std::uint32_t       m_received_ms  {};
+        std::uint32_t       m_sent_ms      {};
     };
 
     CommandReceiver(const char* p_access_point_ssid,
@@ -25,13 +25,14 @@ public:
                     std::uint16_t p_port);
     ~CommandReceiver();
 
-    CommandReceiver(const CommandReceiver& p_other) = delete;
-    CommandReceiver(CommandReceiver&& p_other) = delete;
+    CommandReceiver(const CommandReceiver& p_other)            = delete;
+    CommandReceiver(CommandReceiver&& p_other)                 = delete;
     CommandReceiver& operator=(const CommandReceiver& p_other) = delete;
-    CommandReceiver& operator=(CommandReceiver&& p_other) = delete;
+    CommandReceiver& operator=(CommandReceiver&& p_other)      = delete;
 
     bool init();
     bool get_packet(ReceivedCommand& p_received_command);
+    void reset_session();
 
 private:
     void receive_callback(pbuf* p_packet);
@@ -42,11 +43,15 @@ private:
 
     std::uint16_t m_server_port;
 
-    udp_pcb* m_udp_pcb = nullptr;
+    udp_pcb* m_udp_pcb{};
     critical_section_t m_packet_lock{};
     ReceivedCommand m_received_command{};
-    // @details Use only with m_packet_lock locked
-    bool m_has_packet = false;
-    bool m_initialized = false;
-    bool m_cyw43_initialized = false;
+    // @details Use only with m_packet_lock locked.
+    bool m_has_packet{};
+    std::uint32_t m_active_session_id{};
+    std::uint32_t m_pending_session_id{};
+    std::uint8_t m_pending_hello_count{};
+    bool m_session_armed{};
+    bool m_initialized{};
+    bool m_cyw43_initialized{};
 };

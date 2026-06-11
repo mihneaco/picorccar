@@ -2,16 +2,17 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <type_traits>
 
 #include "lwip/ip_addr.h"
+#include "picorccar/protocol.h"
 
 struct udp_pcb;
 
 class CommandSender
 {
 public:
-    static constexpr std::size_t MAX_PACKET_BYTES = 256;
-
     CommandSender(const char* p_access_point_ssid,
                   const char* p_access_point_password,
                   const ip_addr_t& p_remote_address,
@@ -24,9 +25,11 @@ public:
     CommandSender& operator=(CommandSender&& p_other) = delete;
 
     bool init();
-    bool send_packet(const std::uint8_t* p_payload, std::size_t p_length);
+    bool send_packet(const protocol::WirePacket& p_packet);
 
 private:
+
+    bool send_packet_bytes(const void* p_payload, std::size_t p_length);
     void cleanup();
 
     const char* m_access_point_ssid;

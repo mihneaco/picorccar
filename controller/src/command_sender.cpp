@@ -119,7 +119,15 @@ bool CommandSender::init()
     return true;
 }
 
-bool CommandSender::send_packet(const std::uint8_t* const p_payload, const std::size_t p_length)
+bool CommandSender::send_packet(const protocol::WirePacket &p_packet)
+{
+    std::uint8_t payload[protocol::WIRE_PACKET_SIZE] {};
+    protocol::serialize_wire_packet(p_packet, payload);
+
+    return send_packet_bytes(payload, sizeof(payload));
+}
+
+bool CommandSender::send_packet_bytes(const void* const p_payload, const std::size_t p_length)
 {
     if (!m_initialized || m_udp_pcb == nullptr)
     {
@@ -127,23 +135,11 @@ bool CommandSender::send_packet(const std::uint8_t* const p_payload, const std::
         return false;
     }
 
-    if (p_length == 0)
-    {
-        LOG_WARNING("Refusing to send empty UDP packet");
-        return false;
-    }
-
-    if (p_length > MAX_PACKET_BYTES)
+    if (p_length > protocol::WIRE_PACKET_SIZE)
     {
         LOG_WARNING("UDP payload too large: %u > %u",
                     static_cast<unsigned>(p_length),
-                    static_cast<unsigned>(MAX_PACKET_BYTES));
-        return false;
-    }
-
-    if (p_payload == nullptr)
-    {
-        LOG_WARNING("Refusing to send null UDP payload");
+                    static_cast<unsigned>(protocol::WIRE_PACKET_SIZE));
         return false;
     }
 

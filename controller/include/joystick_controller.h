@@ -8,12 +8,14 @@ namespace pinout
 {
     struct JoystickControllerPins
     {
-        Pin m_x_axis;
-        Pin m_y_axis;
+        Pin m_bpressed{};
+        Pin m_x_axis{};
+        Pin m_y_axis{};
     };
 
     constexpr JoystickControllerPins JOYSTICK_PINS
     {
+        pinout::JOYSTICK_BPRESSED_GPIO,
         pinout::JOYSTICK_X_AXIS_GPIO,
         pinout::JOYSTICK_Y_AXIS_GPIO
     };
@@ -24,8 +26,9 @@ class JoystickController
 public:
     struct Sample
     {
-        std::uint16_t m_x_axis = 0;
-        std::uint16_t m_y_axis = 0;
+        bool          m_bpressed{};
+        std::uint16_t m_x_axis{};
+        std::uint16_t m_y_axis{};
     };
 
     static constexpr std::uint8_t ADC_INPUT_BITS = 12;

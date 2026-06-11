@@ -32,6 +32,7 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
         picorccar_firmware_headers
+        picorccar_protocol
         picorccar_warnings
         pico_stdlib
         pico_cyw43_arch_lwip_threadsafe_background
@@ -42,7 +43,6 @@ target_link_libraries(${PROJECT_NAME}
 ## STDIO over usb ##
 pico_enable_stdio_usb(${PROJECT_NAME} 1)
 pico_enable_stdio_uart(${PROJECT_NAME} 0)
-
 ## Generate the .uf2 file ##
 pico_add_extra_outputs(${PROJECT_NAME})
 

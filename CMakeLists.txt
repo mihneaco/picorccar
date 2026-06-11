@@ -54,10 +54,10 @@ if (NOT DEFINED PICORCCAR_WIFI_AP_PSK OR PICORCCAR_WIFI_AP_PSK STREQUAL "")
         "Generated WPA2 PSK shared by the car and controller firmware"
         FORCE)
 endif()
-set(PICORCCAR_WIFI_AP_IP "192.168.4.1" CACHE STRING "Static IPv4 address used by the car access point")
-set(PICORCCAR_WIFI_STA_IP "192.168.4.2" CACHE STRING "Static IPv4 address used by the controller station")
-set(PICORCCAR_WIFI_NETMASK "255.255.255.0" CACHE STRING "Static IPv4 netmask used by both firmwares")
-set(PICORCCAR_UDP_SERVER_PORT "12345" CACHE STRING "UDP port used by the car command receiver")
+set(PICORCCAR_WIFI_AP_IP      "192.168.4.1"   CACHE STRING "Static IPv4 address used by the car access point")
+set(PICORCCAR_WIFI_STA_IP     "192.168.4.2"   CACHE STRING "Static IPv4 address used by the controller station")
+set(PICORCCAR_WIFI_NETMASK    "255.255.255.0" CACHE STRING "Static IPv4 netmask used by both firmwares")
+set(PICORCCAR_UDP_SERVER_PORT "12345"         CACHE STRING "UDP port used by the car command receiver")
 
 # -Wall and -Wextra for subprojects
 add_library(picorccar_warnings INTERFACE)
@@ -74,6 +74,16 @@ add_library(picorccar_firmware_headers INTERFACE)
 target_include_directories(picorccar_firmware_headers
     INTERFACE
         ${CMAKE_SOURCE_DIR}/include
+)
+
+add_library(picorccar_protocol STATIC
+    ${CMAKE_SOURCE_DIR}/src/protocol.cpp
+)
+target_link_libraries(picorccar_protocol
+    PUBLIC
+        picorccar_firmware_headers
+    PRIVATE
+        picorccar_warnings
 )
 
 if (NOT DEFINED PICO_MOUNT_PATH)

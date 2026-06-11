@@ -3,17 +3,21 @@
 #include "command_sender.h"
 
 #include "picorccar/logger.h"
+#include "picorccar/protocol.h"
 
 #include "lwip/ip_addr.h"
 #include "pico/stdlib.h"
+#include "pico/rand.h"
 
 namespace
 {
-constexpr char ACCESS_POINT_SSID[] = PICORCCAR_ACCESS_POINT_SSID;
-constexpr char ACCESS_POINT_PSK[] = PICORCCAR_ACCESS_POINT_PSK;
-constexpr char UDP_SERVER_IP[] = PICORCCAR_UDP_SERVER_IP;
-constexpr std::uint16_t UDP_SERVER_PORT = PICORCCAR_UDP_SERVER_PORT;
-constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 1000;
+constexpr char          ACCESS_POINT_SSID[] = PICORCCAR_ACCESS_POINT_SSID;
+constexpr char          ACCESS_POINT_PSK[]  = PICORCCAR_ACCESS_POINT_PSK;
+constexpr char          UDP_SERVER_IP[]     = PICORCCAR_UDP_SERVER_IP;
+constexpr std::uint16_t UDP_SERVER_PORT     = PICORCCAR_UDP_SERVER_PORT;
+
+constexpr std::uint32_t HELLO_PACKET_SPACING_MS = 20;
+constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 }
 
 int main()
@@ -49,11 +53,40 @@ int main()
         while (true)
             tight_loop_contents();
     }
+    std::uint32_t sessionId = get_rand_32();
+    protocol::WirePacket hello_packet{};
+    hello_packet.m_mode = protocol::WirePacket::Mode::HELLO;
+    hello_packet.m_session_id = sessionId;
+    for (std::uint8_t hello_packet_index = 0;
+         hello_packet_index < protocol::SESSION_HELLO_PACKET_COUNT;
+         ++hello_packet_index)
+    {
+        hello_packet.m_session_ms = to_ms_since_boot(get_absolute_time());
+        command_sender.send_packet(hello_packet);
+        sleep_ms(HELLO_PACKET_SPACING_MS);
+    }
 
-    LOG_INFO("Controller firmware placeholder started");
-
+    LOG_INFO("Starting Controller MAIN LOOP");
+    // MAIN LOOP
+    JoystickController::Sample joystick_sample{};
     while (true)
     {
+        if (joystick_controller.read(joystick_sample))
+        {
+            protocol::CtrlState ctrl_state
+            {
+                .m_bpressed = joystick_sample.m_bpressed,
+                .m_x_axis = joystick_sample.m_x_axis,
+                .m_y_axis = joystick_sample.m_y_axis
+            };
+            protocol::WirePacket command_packet{};
+            command_packet.m_mode = protocol::WirePacket::Mode::COMMAND;
+            command_packet.m_session_id = sessionId;
+            command_packet.m_session_ms = to_ms_since_boot(get_absolute_time());
+            protocol::serialize_ctrl_state(ctrl_state, command_packet.m_payload);
+            command_sender.send_packet(command_packet);
+        }
+
         sleep_ms(MAIN_LOOP_SLEEP_MS);
     }
 

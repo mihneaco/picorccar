@@ -31,6 +31,7 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
         picorccar_firmware_headers
+        picorccar_protocol
         picorccar_warnings
         hardware_adc
         pico_stdlib
@@ -39,7 +40,7 @@ target_link_libraries(${PROJECT_NAME}
 
 pico_enable_stdio_usb(${PROJECT_NAME} 1)
 pico_enable_stdio_uart(${PROJECT_NAME} 0)
-
+## Generate the .uf2 file ##
 pico_add_extra_outputs(${PROJECT_NAME})
 
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.uf2"
