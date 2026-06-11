@@ -1,7 +1,8 @@
 #include "joystick_controller.h"
 #include "pinout.h"
-#include "picorccar/pico_logger.h"
 #include "command_sender.h"
+
+#include "picorccar/logger.h"
 
 #include "lwip/ip_addr.h"
 #include "pico/stdlib.h"

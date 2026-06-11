@@ -1,10 +1,10 @@
 #include <cstdint>
 
-#include "picorccar/pico_logger.h"
 #include "motor_driver.h"
 #include "command_receiver.h"
 
-// Pico SDK
+#include "picorccar/logger.h"
+
 #include "pico/stdlib.h"
 
 namespace

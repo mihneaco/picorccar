@@ -1,7 +1,7 @@
 #include "joystick_controller.h"
 
 #include "pinout.h"
-#include "picorccar/pico_logger.h"
+#include "picorccar/logger.h"
 
 #include "hardware/adc.h"
 
