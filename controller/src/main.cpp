@@ -54,8 +54,8 @@ int main()
             tight_loop_contents();
     }
     std::uint32_t sessionId = get_rand_32();
-    protocol::WirePacket hello_packet{};
-    hello_packet.m_mode = protocol::WirePacket::Mode::HELLO;
+    protocol::RCCarPacket hello_packet{};
+    hello_packet.m_mode = protocol::RCCarPacket::Mode::HELLO;
     hello_packet.m_session_id = sessionId;
     for (std::uint8_t hello_packet_index = 0;
          hello_packet_index < protocol::SESSION_HELLO_PACKET_COUNT;
@@ -76,11 +76,11 @@ int main()
             protocol::CtrlState ctrl_state
             {
                 .m_bpressed = joystick_sample.m_bpressed,
-                .m_x_axis = joystick_sample.m_x_axis,
-                .m_y_axis = joystick_sample.m_y_axis
+                .m_x_axis   = joystick_sample.m_x_axis,
+                .m_y_axis   = joystick_sample.m_y_axis
             };
-            protocol::WirePacket command_packet{};
-            command_packet.m_mode = protocol::WirePacket::Mode::COMMAND;
+            protocol::RCCarPacket command_packet{};
+            command_packet.m_mode = protocol::RCCarPacket::Mode::COMMAND;
             command_packet.m_session_id = sessionId;
             command_packet.m_session_ms = to_ms_since_boot(get_absolute_time());
             protocol::serialize_ctrl_state(ctrl_state, command_packet.m_payload);

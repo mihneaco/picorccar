@@ -25,7 +25,7 @@ public:
     CommandSender& operator=(CommandSender&& p_other) = delete;
 
     bool init();
-    bool send_packet(const protocol::WirePacket& p_packet);
+    bool send_packet(const protocol::RCCarPacket& p_packet);
 
 private:
 

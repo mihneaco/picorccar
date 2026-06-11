@@ -119,10 +119,10 @@ bool CommandSender::init()
     return true;
 }
 
-bool CommandSender::send_packet(const protocol::WirePacket &p_packet)
+bool CommandSender::send_packet(const protocol::RCCarPacket &p_packet)
 {
-    std::uint8_t payload[protocol::WIRE_PACKET_SIZE] {};
-    protocol::serialize_wire_packet(p_packet, payload);
+    std::uint8_t payload[protocol::RCCAR_PACKET_SIZE] {};
+    protocol::serialize_rccar_packet(p_packet, payload);
 
     return send_packet_bytes(payload, sizeof(payload));
 }
@@ -135,11 +135,11 @@ bool CommandSender::send_packet_bytes(const void* const p_payload, const std::si
         return false;
     }
 
-    if (p_length > protocol::WIRE_PACKET_SIZE)
+    if (p_length > protocol::RCCAR_PACKET_SIZE)
     {
         LOG_WARNING("UDP payload too large: %u > %u",
                     static_cast<unsigned>(p_length),
-                    static_cast<unsigned>(protocol::WIRE_PACKET_SIZE));
+                    static_cast<unsigned>(protocol::RCCAR_PACKET_SIZE));
         return false;
     }
 

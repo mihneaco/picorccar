@@ -15,7 +15,7 @@ struct CtrlState
     std::uint16_t m_y_axis{0};
 };
 
-struct WirePacket
+struct RCCarPacket
 {
     enum class Mode : std::uint8_t
     {
@@ -30,16 +30,16 @@ struct WirePacket
     std::uint8_t  m_payload[CTRL_STATE_WIRE_SIZE] {};
 };
 
-inline constexpr std::size_t WIRE_PACKET_PAYLOAD_SIZE = CTRL_STATE_WIRE_SIZE;
-inline constexpr std::size_t WIRE_PACKET_SIZE =
-    sizeof(std::uint8_t) + sizeof(std::uint32_t) + sizeof(std::uint32_t) + WIRE_PACKET_PAYLOAD_SIZE;
+inline constexpr std::size_t RCCAR_PACKET_PAYLOAD_SIZE = CTRL_STATE_WIRE_SIZE;
+inline constexpr std::size_t RCCAR_PACKET_SIZE =
+    sizeof(std::uint8_t) + sizeof(std::uint32_t) + sizeof(std::uint32_t) + RCCAR_PACKET_PAYLOAD_SIZE;
 
 void serialize_ctrl_state(const CtrlState& p_ctrl_state, std::uint8_t* p_destination);
 
 CtrlState deserialize_ctrl_state(const std::uint8_t* p_source);
 
-void serialize_wire_packet(const WirePacket& p_packet, std::uint8_t* p_destination);
+void serialize_rccar_packet(const RCCarPacket& p_packet, std::uint8_t* p_destination);
 
-WirePacket deserialize_wire_packet(const std::uint8_t* p_source);
+RCCarPacket deserialize_rccar_packet(const std::uint8_t* p_source);
 
 } // namespace protocol

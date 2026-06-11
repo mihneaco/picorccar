@@ -105,36 +105,36 @@ void CommandReceiver::receive_callback(pbuf* p_packet)
     if (p_packet == nullptr)
         return;
 
-    if (p_packet->tot_len != protocol::WIRE_PACKET_SIZE)
+    if (p_packet->tot_len != protocol::RCCAR_PACKET_SIZE)
     {
         LOG_WARNING("Ignoring UDP packet with unexpected length: got=%u expected=%u",
                     static_cast<unsigned>(p_packet->tot_len),
-                    static_cast<unsigned>(protocol::WIRE_PACKET_SIZE));
+                    static_cast<unsigned>(protocol::RCCAR_PACKET_SIZE));
         pbuf_free(p_packet);
         return;
     }
 
-    std::uint8_t payload[protocol::WIRE_PACKET_SIZE] {};
+    std::uint8_t payload[protocol::RCCAR_PACKET_SIZE] {};
     const u16_t copied_bytes = pbuf_copy_partial(p_packet,
                                                  payload,
-                                                 static_cast<u16_t>(protocol::WIRE_PACKET_SIZE),
+                                                 static_cast<u16_t>(protocol::RCCAR_PACKET_SIZE),
                                                  0);
 
     pbuf_free(p_packet);
 
-    if (copied_bytes != protocol::WIRE_PACKET_SIZE)
+    if (copied_bytes != protocol::RCCAR_PACKET_SIZE)
     {
         LOG_WARNING("Ignoring UDP packet with incomplete copy: got=%u expected=%u",
                     static_cast<unsigned>(copied_bytes),
-                    static_cast<unsigned>(protocol::WIRE_PACKET_SIZE));
+                    static_cast<unsigned>(protocol::RCCAR_PACKET_SIZE));
         return;
     }
 
-    const protocol::WirePacket packet = protocol::deserialize_wire_packet(payload);
+    const protocol::RCCarPacket packet = protocol::deserialize_rccar_packet(payload);
     const auto mode = packet.m_mode;
     const std::uint32_t session_id = packet.m_session_id;
 
-    if (mode == protocol::WirePacket::Mode::HELLO)
+    if (mode == protocol::RCCarPacket::Mode::HELLO)
     {
         critical_section_enter_blocking(&m_packet_lock);
         {
@@ -162,7 +162,7 @@ void CommandReceiver::receive_callback(pbuf* p_packet)
         return;
     }
 
-    if (mode != protocol::WirePacket::Mode::COMMAND)
+    if (mode != protocol::RCCarPacket::Mode::COMMAND)
     {
         LOG_DEBUG("Ignoring non-command packet mode=%u",
                   static_cast<unsigned>(mode));

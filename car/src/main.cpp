@@ -15,7 +15,7 @@ constexpr std::uint16_t UDP_SERVER_PORT = PICORCCAR_UDP_SERVER_PORT;
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 constexpr std::uint32_t COMMAND_TIMEOUT_MS = 250;
 
-void print_udp_packet(const CommandReceiver::ReceivedCommand& p_received_command)
+void print_packet(const CommandReceiver::ReceivedCommand& p_received_command)
 {
     LOG_TRACE("UDP packet PLACEHOLDER");
 }
@@ -69,7 +69,7 @@ int main()
         {
             last_packet_ms = latest_received_command.m_received_ms;
             command_timed_out = false;
-            print_udp_packet(latest_received_command);
+            print_packet(latest_received_command);
         }
 
         const std::uint32_t packet_age_ms = to_ms_since_boot(get_absolute_time()) - last_packet_ms;

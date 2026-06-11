@@ -10,10 +10,10 @@ constexpr std::size_t CTRL_STATE_BUTTON_OFFSET = 0;
 constexpr std::size_t CTRL_STATE_X_AXIS_OFFSET = CTRL_STATE_BUTTON_OFFSET + sizeof(std::uint8_t);
 constexpr std::size_t CTRL_STATE_Y_AXIS_OFFSET = CTRL_STATE_X_AXIS_OFFSET + sizeof(std::uint16_t);
 
-constexpr std::size_t WIRE_PACKET_MODE_OFFSET = 0;
-constexpr std::size_t WIRE_PACKET_SESSION_ID_OFFSET = WIRE_PACKET_MODE_OFFSET + sizeof(std::uint8_t);
-constexpr std::size_t WIRE_PACKET_SESSION_MS_OFFSET = WIRE_PACKET_SESSION_ID_OFFSET + sizeof(std::uint32_t);
-constexpr std::size_t WIRE_PACKET_PAYLOAD_OFFSET = WIRE_PACKET_SESSION_MS_OFFSET + sizeof(std::uint32_t);
+constexpr std::size_t RCCAR_PACKET_MODE_OFFSET = 0;
+constexpr std::size_t RCCAR_PACKET_SESSION_ID_OFFSET = RCCAR_PACKET_MODE_OFFSET + sizeof(std::uint8_t);
+constexpr std::size_t RCCAR_PACKET_SESSION_MS_OFFSET = RCCAR_PACKET_SESSION_ID_OFFSET + sizeof(std::uint32_t);
+constexpr std::size_t RCCAR_PACKET_PAYLOAD_OFFSET = RCCAR_PACKET_SESSION_MS_OFFSET + sizeof(std::uint32_t);
 
 void write_u16_be(std::uint8_t* const p_destination, const std::uint16_t p_value)
 {
@@ -59,21 +59,21 @@ CtrlState deserialize_ctrl_state(const std::uint8_t* const p_source)
         .m_y_axis = read_u16_be(&p_source[CTRL_STATE_Y_AXIS_OFFSET])};
 }
 
-void serialize_wire_packet(const WirePacket& p_packet, std::uint8_t* const p_destination)
+void serialize_rccar_packet(const RCCarPacket& p_packet, std::uint8_t* const p_destination)
 {
-    p_destination[WIRE_PACKET_MODE_OFFSET] = static_cast<std::uint8_t>(p_packet.m_mode);
-    write_u32_be(&p_destination[WIRE_PACKET_SESSION_ID_OFFSET], p_packet.m_session_id);
-    write_u32_be(&p_destination[WIRE_PACKET_SESSION_MS_OFFSET], p_packet.m_session_ms);
-    std::memcpy(&p_destination[WIRE_PACKET_PAYLOAD_OFFSET], p_packet.m_payload, sizeof(p_packet.m_payload));
+    p_destination[RCCAR_PACKET_MODE_OFFSET] = static_cast<std::uint8_t>(p_packet.m_mode);
+    write_u32_be(&p_destination[RCCAR_PACKET_SESSION_ID_OFFSET], p_packet.m_session_id);
+    write_u32_be(&p_destination[RCCAR_PACKET_SESSION_MS_OFFSET], p_packet.m_session_ms);
+    std::memcpy(&p_destination[RCCAR_PACKET_PAYLOAD_OFFSET], p_packet.m_payload, sizeof(p_packet.m_payload));
 }
 
-WirePacket deserialize_wire_packet(const std::uint8_t* const p_source)
+RCCarPacket deserialize_rccar_packet(const std::uint8_t* const p_source)
 {
-    WirePacket packet{};
-    packet.m_mode = static_cast<WirePacket::Mode>(p_source[WIRE_PACKET_MODE_OFFSET]);
-    packet.m_session_id = read_u32_be(&p_source[WIRE_PACKET_SESSION_ID_OFFSET]);
-    packet.m_session_ms = read_u32_be(&p_source[WIRE_PACKET_SESSION_MS_OFFSET]);
-    std::memcpy(packet.m_payload, &p_source[WIRE_PACKET_PAYLOAD_OFFSET], sizeof(packet.m_payload));
+    RCCarPacket packet{};
+    packet.m_mode = static_cast<RCCarPacket::Mode>(p_source[RCCAR_PACKET_MODE_OFFSET]);
+    packet.m_session_id = read_u32_be(&p_source[RCCAR_PACKET_SESSION_ID_OFFSET]);
+    packet.m_session_ms = read_u32_be(&p_source[RCCAR_PACKET_SESSION_MS_OFFSET]);
+    std::memcpy(packet.m_payload, &p_source[RCCAR_PACKET_PAYLOAD_OFFSET], sizeof(packet.m_payload));
     return packet;
 }
 } // namespace protocol
