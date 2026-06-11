@@ -31,7 +31,6 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
         picorccar_firmware_headers
-        picorccar_protocol
         picorccar_warnings
         hardware_adc
         pico_stdlib

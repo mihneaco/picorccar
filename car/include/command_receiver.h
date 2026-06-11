@@ -49,8 +49,6 @@ private:
     // @details Use only with m_packet_lock locked.
     bool m_has_packet{};
     std::uint32_t m_active_session_id{};
-    std::uint32_t m_pending_session_id{};
-    std::uint8_t m_pending_hello_count{};
     bool m_session_armed{};
     bool m_initialized{};
     bool m_cyw43_initialized{};

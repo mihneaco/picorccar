@@ -6,11 +6,23 @@
 
 // pico_sdk
 #include "cyw43.h"
+#include "lwip/def.h"
 #include "lwip/err.h"
 #include "lwip/pbuf.h"
 #include "lwip/udp.h"
 #include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
+
+namespace
+{
+constexpr std::size_t RCCAR_PACKET_MODE_OFFSET = 0;
+constexpr std::size_t RCCAR_PACKET_SESSION_ID_OFFSET = RCCAR_PACKET_MODE_OFFSET + sizeof(std::uint8_t);
+constexpr std::size_t RCCAR_PACKET_SESSION_MS_OFFSET = RCCAR_PACKET_SESSION_ID_OFFSET + sizeof(std::uint32_t);
+constexpr std::size_t RCCAR_PACKET_PAYLOAD_OFFSET = RCCAR_PACKET_SESSION_MS_OFFSET + sizeof(std::uint32_t);
+
+constexpr std::size_t CTRL_STATE_X_AXIS_OFFSET = 0;
+constexpr std::size_t CTRL_STATE_Y_AXIS_OFFSET = CTRL_STATE_X_AXIS_OFFSET + sizeof(std::uint16_t);
+}
 
 CommandReceiver::CommandReceiver(const char* const p_access_point_ssid,
                                  const char* const p_access_point_password,
@@ -130,9 +142,11 @@ void CommandReceiver::receive_callback(pbuf* p_packet)
         return;
     }
 
-    const protocol::RCCarPacket packet = protocol::deserialize_rccar_packet(payload);
-    const auto mode = packet.m_mode;
-    const std::uint32_t session_id = packet.m_session_id;
+    const auto mode = static_cast<protocol::RCCarPacket::Mode>(payload[RCCAR_PACKET_MODE_OFFSET]);
+
+    std::uint32_t session_id_be{};
+    std::memcpy(&session_id_be, &payload[RCCAR_PACKET_SESSION_ID_OFFSET], sizeof(session_id_be));
+    const std::uint32_t session_id = lwip_ntohl(session_id_be);
 
     if (mode == protocol::RCCarPacket::Mode::HELLO)
     {
@@ -140,22 +154,9 @@ void CommandReceiver::receive_callback(pbuf* p_packet)
         {
             if (!m_session_armed)
             {
-                if (session_id == m_pending_session_id)
-                    ++m_pending_hello_count;
-                else
-                {
-                    m_pending_session_id = session_id;
-                    m_pending_hello_count = 1;
-                }
-
-                if (m_pending_hello_count >= protocol::SESSION_HELLO_PACKET_COUNT)
-                {
-                    m_active_session_id = session_id;
-                    m_pending_session_id = session_id;
-                    m_pending_hello_count = 0;
-                    m_session_armed = true;
-                    m_has_packet = false;
-                }
+                m_active_session_id = session_id;
+                m_session_armed = true;
+                m_has_packet = false;
             }
         }
         critical_section_exit(&m_packet_lock);
@@ -175,10 +176,20 @@ void CommandReceiver::receive_callback(pbuf* p_packet)
     if (!accept_command)
         return;
 
+    std::uint32_t session_ms_be{};
+    std::memcpy(&session_ms_be, &payload[RCCAR_PACKET_SESSION_MS_OFFSET], sizeof(session_ms_be));
+
+    std::uint16_t x_axis_be{};
+    std::memcpy(&x_axis_be, &payload[RCCAR_PACKET_PAYLOAD_OFFSET + CTRL_STATE_X_AXIS_OFFSET], sizeof(x_axis_be));
+
+    std::uint16_t y_axis_be{};
+    std::memcpy(&y_axis_be, &payload[RCCAR_PACKET_PAYLOAD_OFFSET + CTRL_STATE_Y_AXIS_OFFSET], sizeof(y_axis_be));
+
     ReceivedCommand latest_received_command{};
     latest_received_command.m_received_ms = to_ms_since_boot(get_absolute_time());
-    latest_received_command.m_sent_ms = packet.m_session_ms;
-    latest_received_command.m_ctrl_state = protocol::deserialize_ctrl_state(packet.m_payload);
+    latest_received_command.m_sent_ms = lwip_ntohl(session_ms_be);
+    latest_received_command.m_ctrl_state.m_x_axis = lwip_ntohs(x_axis_be);
+    latest_received_command.m_ctrl_state.m_y_axis = lwip_ntohs(y_axis_be);
 
     critical_section_enter_blocking(&m_packet_lock);
     {
@@ -212,8 +223,6 @@ void CommandReceiver::reset_session()
     {
         m_has_packet = false;
         m_active_session_id = 0;
-        m_pending_session_id = 0;
-        m_pending_hello_count = 0;
         m_session_armed = false;
     }
     critical_section_exit(&m_packet_lock);

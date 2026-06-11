@@ -2,8 +2,11 @@
 
 #include "picorccar/logger.h"
 
+#include <cstring>
+
 // pico_sdk
 #include "cyw43.h"
+#include "lwip/def.h"
 #include "lwip/err.h"
 #include "lwip/ip4_addr.h"
 #include "lwip/pbuf.h"
@@ -14,6 +17,10 @@
 namespace
 {
 constexpr std::uint32_t WIFI_CONNECT_TIMEOUT_MS = 10000;
+constexpr std::size_t RCCAR_PACKET_MODE_OFFSET = 0;
+constexpr std::size_t RCCAR_PACKET_SESSION_ID_OFFSET = RCCAR_PACKET_MODE_OFFSET + sizeof(std::uint8_t);
+constexpr std::size_t RCCAR_PACKET_SESSION_MS_OFFSET = RCCAR_PACKET_SESSION_ID_OFFSET + sizeof(std::uint32_t);
+constexpr std::size_t RCCAR_PACKET_PAYLOAD_OFFSET = RCCAR_PACKET_SESSION_MS_OFFSET + sizeof(std::uint32_t);
 }
 
 CommandSender::CommandSender(const char* const p_access_point_ssid,
@@ -122,7 +129,15 @@ bool CommandSender::init()
 bool CommandSender::send_packet(const protocol::RCCarPacket &p_packet)
 {
     std::uint8_t payload[protocol::RCCAR_PACKET_SIZE] {};
-    protocol::serialize_rccar_packet(p_packet, payload);
+    payload[RCCAR_PACKET_MODE_OFFSET] = static_cast<std::uint8_t>(p_packet.m_mode);
+
+    const std::uint32_t session_id_be = lwip_htonl(p_packet.m_session_id);
+    std::memcpy(&payload[RCCAR_PACKET_SESSION_ID_OFFSET], &session_id_be, sizeof(session_id_be));
+
+    const std::uint32_t session_ms_be = lwip_htonl(p_packet.m_session_ms);
+    std::memcpy(&payload[RCCAR_PACKET_SESSION_MS_OFFSET], &session_ms_be, sizeof(session_ms_be));
+
+    std::memcpy(&payload[RCCAR_PACKET_PAYLOAD_OFFSET], p_packet.m_payload, sizeof(p_packet.m_payload));
 
     return send_packet_bytes(payload, sizeof(payload));
 }

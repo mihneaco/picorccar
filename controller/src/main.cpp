@@ -5,6 +5,9 @@
 #include "picorccar/logger.h"
 #include "picorccar/protocol.h"
 
+#include <cstring>
+
+#include "lwip/def.h"
 #include "lwip/ip_addr.h"
 #include "pico/stdlib.h"
 #include "pico/rand.h"
@@ -16,6 +19,8 @@ constexpr char          ACCESS_POINT_PSK[]  = PICORCCAR_ACCESS_POINT_PSK;
 constexpr char          UDP_SERVER_IP[]     = PICORCCAR_UDP_SERVER_IP;
 constexpr std::uint16_t UDP_SERVER_PORT     = PICORCCAR_UDP_SERVER_PORT;
 
+constexpr std::size_t CTRL_STATE_X_AXIS_OFFSET = 0;
+constexpr std::size_t CTRL_STATE_Y_AXIS_OFFSET = CTRL_STATE_X_AXIS_OFFSET + sizeof(std::uint16_t);
 constexpr std::uint32_t HELLO_PACKET_SPACING_MS = 20;
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 }
@@ -73,17 +78,17 @@ int main()
     {
         if (joystick_controller.read(joystick_sample))
         {
-            protocol::CtrlState ctrl_state
-            {
-                .m_bpressed = joystick_sample.m_bpressed,
-                .m_x_axis   = joystick_sample.m_x_axis,
-                .m_y_axis   = joystick_sample.m_y_axis
-            };
             protocol::RCCarPacket command_packet{};
             command_packet.m_mode = protocol::RCCarPacket::Mode::COMMAND;
             command_packet.m_session_id = sessionId;
             command_packet.m_session_ms = to_ms_since_boot(get_absolute_time());
-            protocol::serialize_ctrl_state(ctrl_state, command_packet.m_payload);
+
+            const std::uint16_t x_axis_be = lwip_htons(joystick_sample.m_x_axis);
+            std::memcpy(&command_packet.m_payload[CTRL_STATE_X_AXIS_OFFSET], &x_axis_be, sizeof(x_axis_be));
+
+            const std::uint16_t y_axis_be = lwip_htons(joystick_sample.m_y_axis);
+            std::memcpy(&command_packet.m_payload[CTRL_STATE_Y_AXIS_OFFSET], &y_axis_be, sizeof(y_axis_be));
+
             command_sender.send_packet(command_packet);
         }
 

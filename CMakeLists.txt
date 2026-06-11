@@ -76,16 +76,6 @@ target_include_directories(picorccar_firmware_headers
         ${CMAKE_SOURCE_DIR}/include
 )
 
-add_library(picorccar_protocol STATIC
-    ${CMAKE_SOURCE_DIR}/src/protocol.cpp
-)
-target_link_libraries(picorccar_protocol
-    PUBLIC
-        picorccar_firmware_headers
-    PRIVATE
-        picorccar_warnings
-)
-
 if (NOT DEFINED PICO_MOUNT_PATH)
     if (DEFINED ENV{USER})
         set(PICO_MOUNT_PATH "/media/$ENV{USER}/RP2350" CACHE PATH "Pico USB mass-storage mount path")
