@@ -213,7 +213,7 @@ bool CommandSender::send_packet_bytes(const void* const p_payload, const std::si
 
     if (p_length > protocol::RCCAR_PACKET_SIZE)
     {
-        LOG_WARNING("UDP payload too large: %u > %u",
+        LOG_WARNING("Payload too large: %u > %u",
                     static_cast<unsigned>(p_length),
                     static_cast<unsigned>(protocol::RCCAR_PACKET_SIZE));
         return false;
@@ -230,11 +230,11 @@ bool CommandSender::send_packet_bytes(const void* const p_payload, const std::si
         }
         else
         {
-            const err_t copy_result = pbuf_take(packet_buffer, p_payload, p_length);
-            if (copy_result == ERR_OK)
+            const err_t res = pbuf_take(packet_buffer, p_payload, p_length);
+            if (res == ERR_OK)
                 send_result = udp_send(m_udp_pcb, packet_buffer);
             else
-                send_result = copy_result;
+                send_result = res;
 
             pbuf_free(packet_buffer);
         }

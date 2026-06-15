@@ -60,7 +60,7 @@ int main()
                 was_button_pressed = joystick_sample.m_bpressed;
             }
 
-            const protocol::CtrlState controller_state{
+            const protocol::CtrlState controller_state {
                 joystick_sample.m_x_axis,
                 joystick_sample.m_y_axis};
             command_sender.send_controller_state(controller_state);

@@ -41,8 +41,6 @@ public:
         Brake
     };
 
-    static constexpr std::uint16_t MAX_SPEED = 1000;
-
     explicit MotorDriver(const pinout::DriverPins p_pins);
     MotorDriver(const MotorDriver& p_other) = delete;
     MotorDriver(MotorDriver&& p_other) = delete;
@@ -62,18 +60,11 @@ private:
         std::uint16_t m_pwm_duty = 0;
     };
 
-    static constexpr std::uint16_t PWM_WRAP = MAX_SPEED;
+    static constexpr std::uint16_t PWM_WRAP = 1000;
     static constexpr std::uint16_t PWM_FULL_DUTY = PWM_WRAP + 1;
     static constexpr std::uint32_t PWM_TARGET_HZ = 20000;
-    static constexpr float PWM_CLKDIV_MIN = 1.0f;
-    // Pico PWM clock divider is 8.4 fixed-point, so the largest value is 255 + 15/16.
-    static constexpr float PWM_CLKDIV_MAX = 255.0f + (15.0f / 16.0f);
     static constexpr std::uint32_t DIRECTION_CHANGE_DEADTIME_US = 100;
 
-    void init_pins();
-    void init_pwm_pin(const pinout::Pin p_pwm_pin);
-    void set_pwm_duty(const pinout::Pin p_pwm_pin, const std::uint16_t p_duty);
-    bool is_known_pwm_pin(const pinout::Pin p_pwm_pin) const;
     static bool is_drive_mode_reversal(const DriveMode p_current, const DriveMode p_next);
 
     void set_motor(const pinout::MotorPins& p_pins,

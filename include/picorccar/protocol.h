@@ -5,26 +5,25 @@
 
 namespace protocol
 {
-inline constexpr std::size_t CTRL_STATE_WIRE_SIZE = 2 * sizeof(std::uint16_t);
-
 struct CtrlState
 {
-    std::uint16_t m_x_axis{0};
-    std::uint16_t m_y_axis{0};
+    std::uint16_t m_x_axis {};
+    std::uint16_t m_y_axis {};
 };
+inline constexpr std::size_t CTRL_STATE_WIRE_SIZE = 2 * sizeof(std::uint16_t);
 
 struct RCCarPacket
 {
     enum class Mode : std::uint8_t
     {
         COMMAND = 0,
-        HELLO = 1,
+        HELLO   = 1,
         LAST
     };
 
     Mode          m_mode {Mode::LAST};
-    std::uint32_t m_session_id {0};
-    std::uint32_t m_session_ms {0};
+    std::uint32_t m_session_id {};
+    std::uint32_t m_session_ms {};
     std::uint8_t  m_payload[CTRL_STATE_WIRE_SIZE] {};
 };
 

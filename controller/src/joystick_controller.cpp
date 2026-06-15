@@ -37,7 +37,7 @@ bool JoystickController::init()
         return false;
     }
 
-    // JOYSTICK button is active low
+    // Joystick button is active low
     pico_common::init_gpio_pin(m_pins.m_bpressed,
                                pico_common::GpioDirection::Input,
                                pico_common::GpioPullMode::PullUp);

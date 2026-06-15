@@ -10,6 +10,14 @@
 #include "hardware/adc.h"
 #endif
 
+#if __has_include("hardware/clocks.h")
+#include "hardware/clocks.h"
+#endif
+
+#if __has_include("hardware/pwm.h")
+#include "hardware/pwm.h"
+#endif
+
 namespace pico_common
 {
 using Pin = uint;
@@ -82,6 +90,11 @@ inline bool read_gpio_input(const Pin p_pin)
     return gpio_get(p_pin);
 }
 
+inline void write_gpio_output(const Pin p_pin, const bool p_level)
+{
+    gpio_put(p_pin, p_level ? 1 : 0);
+}
+
 #if __has_include("hardware/adc.h")
 inline void init_adc()
 {
@@ -97,6 +110,40 @@ inline std::uint16_t read_adc_input(const std::uint8_t p_adc_input)
 {
     adc_select_input(p_adc_input);
     return adc_read();
+}
+#endif
+
+#if __has_include("hardware/clocks.h") && __has_include("hardware/pwm.h")
+inline void init_pwm_output_pin(const Pin p_pin,
+                                const std::uint32_t p_target_hz,
+                                const std::uint16_t p_wrap,
+                                const std::uint16_t p_initial_level = 0)
+{
+    constexpr float PWM_CLKDIV_MIN = 1.0f;
+    // Pico PWM clock divider is 8.4 fixed-point, so the largest value is 255 + 15/16.
+    constexpr float PWM_CLKDIV_MAX = 255.0f + (15.0f / 16.0f);
+
+    gpio_set_function(p_pin, GPIO_FUNC_PWM);
+    const uint slice = pwm_gpio_to_slice_num(p_pin);
+
+    pwm_config config = pwm_get_default_config();
+    // In free-running mode: pwm_hz = clk_sys / (clkdiv * (wrap + 1)).
+    float clkdiv = static_cast<float>(clock_get_hz(clk_sys)) /
+                   (static_cast<float>(p_target_hz) * (static_cast<float>(p_wrap) + 1.0f));
+    if (clkdiv < PWM_CLKDIV_MIN)
+        clkdiv = PWM_CLKDIV_MIN;
+    else if (clkdiv > PWM_CLKDIV_MAX)
+        clkdiv = PWM_CLKDIV_MAX;
+
+    pwm_config_set_clkdiv(&config, clkdiv);
+    pwm_config_set_wrap(&config, p_wrap);
+    pwm_init(slice, &config, true);
+    pwm_set_gpio_level(p_pin, p_initial_level);
+}
+
+inline void set_pwm_output_level(const Pin p_pin, const std::uint16_t p_level)
+{
+    pwm_set_gpio_level(p_pin, p_level);
 }
 #endif
 

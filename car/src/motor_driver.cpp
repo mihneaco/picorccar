@@ -1,10 +1,6 @@
 #include "motor_driver.h"
 #include "picorccar/logger.h"
 
-// pico_sdk
-#include "hardware/clocks.h"
-#include "hardware/gpio.h"
-#include "hardware/pwm.h"
 #include "pico/stdlib.h"
 
 namespace
@@ -36,7 +32,14 @@ void MotorDriver::init()
 {
     LOG_DEBUG();
 
-    init_pins();
+    pico_common::init_gpio_pin(m_pins.m_motor_a.m_in1, pico_common::GpioDirection::Output);
+    pico_common::init_gpio_pin(m_pins.m_motor_a.m_in2, pico_common::GpioDirection::Output);
+    pico_common::init_gpio_pin(m_pins.m_motor_b.m_in1, pico_common::GpioDirection::Output);
+    pico_common::init_gpio_pin(m_pins.m_motor_b.m_in2, pico_common::GpioDirection::Output);
+    pico_common::init_gpio_pin(m_pins.m_standby, pico_common::GpioDirection::Output);
+
+    pico_common::init_pwm_output_pin(m_pins.m_motor_a.m_pwm, PWM_TARGET_HZ, PWM_WRAP);
+    pico_common::init_pwm_output_pin(m_pins.m_motor_b.m_pwm, PWM_TARGET_HZ, PWM_WRAP);
 
     stop_all();
     set_standby(true);
@@ -52,16 +55,6 @@ void MotorDriver::set_motor_b(const DriveMode p_drive_mode, const std::uint16_t 
     set_motor(m_pins.m_motor_b, m_motor_state_b, p_drive_mode, p_pwm_duty);
 }
 
-void MotorDriver::set_standby(const bool p_enabled)
-{
-    LOG_DEBUG("STBY=%s", p_enabled ? "H" : "L");
-
-    if (!p_enabled)
-        stop_all();
-
-    gpio_put(m_pins.m_standby, p_enabled ? 1 : 0);
-}
-
 void MotorDriver::stop_all()
 {
     LOG_DEBUG();
@@ -70,55 +63,14 @@ void MotorDriver::stop_all()
     set_motor_b(DriveMode::Stop, 0);
 }
 
-void MotorDriver::init_pins()
+void MotorDriver::set_standby(const bool p_enabled)
 {
-    LOG_DEBUG();
+    LOG_DEBUG("STBY=%s", p_enabled ? "H" : "L");
 
-    pico_common::init_gpio_pin(m_pins.m_motor_a.m_in1, pico_common::GpioDirection::Output);
-    pico_common::init_gpio_pin(m_pins.m_motor_a.m_in2, pico_common::GpioDirection::Output);
-    pico_common::init_gpio_pin(m_pins.m_motor_b.m_in1, pico_common::GpioDirection::Output);
-    pico_common::init_gpio_pin(m_pins.m_motor_b.m_in2, pico_common::GpioDirection::Output);
-    pico_common::init_gpio_pin(m_pins.m_standby, pico_common::GpioDirection::Output);
+    if (!p_enabled)
+        stop_all();
 
-    init_pwm_pin(m_pins.m_motor_a.m_pwm);
-    init_pwm_pin(m_pins.m_motor_b.m_pwm);
-}
-
-void MotorDriver::init_pwm_pin(const pinout::Pin p_pwm_pin)
-{
-    LOG_DEBUG("pin=%u", static_cast<uint>(p_pwm_pin));
-
-    gpio_set_function(p_pwm_pin, GPIO_FUNC_PWM);
-    uint slice = pwm_gpio_to_slice_num(p_pwm_pin);
-
-    pwm_config config = pwm_get_default_config();
-    float clkdiv = clock_get_hz(clk_sys) / (PWM_TARGET_HZ * (PWM_WRAP + 1.f));
-    if (clkdiv < PWM_CLKDIV_MIN)
-        clkdiv = PWM_CLKDIV_MIN;
-    else if (clkdiv > PWM_CLKDIV_MAX)
-        clkdiv = PWM_CLKDIV_MAX;
-
-    pwm_config_set_clkdiv(&config, clkdiv);
-    pwm_config_set_wrap(&config, PWM_WRAP);
-    pwm_init(slice, &config, true);
-    pwm_set_gpio_level(p_pwm_pin, 0);
-}
-
-void MotorDriver::set_pwm_duty(const pinout::Pin p_pwm_pin, const std::uint16_t p_duty)
-{
-    LOG_TRACE("pin=%u duty=%u",
-              static_cast<uint>(p_pwm_pin),
-              static_cast<uint>(p_duty));
-
-    assert(is_known_pwm_pin(p_pwm_pin));
-
-    const std::uint16_t clamped_duty = p_duty > PWM_FULL_DUTY ? PWM_FULL_DUTY : p_duty;
-    pwm_set_gpio_level(p_pwm_pin, clamped_duty);
-}
-
-bool MotorDriver::is_known_pwm_pin(const pinout::Pin p_pwm_pin) const
-{
-    return p_pwm_pin == m_pins.m_motor_a.m_pwm || p_pwm_pin == m_pins.m_motor_b.m_pwm;
+    pico_common::write_gpio_output(m_pins.m_standby, p_enabled);
 }
 
 bool MotorDriver::is_drive_mode_reversal(const DriveMode p_current, const DriveMode p_next)
@@ -148,7 +100,7 @@ void MotorDriver::set_motor(const pinout::MotorPins& p_pins,
     // Drop PWM before changing direction to avoid slamming directly through a reversal.
     if (p_drive_mode != p_motor.m_drive_mode)
     {
-        set_pwm_duty(p_pins.m_pwm, 0);
+        pico_common::set_pwm_output_level(p_pins.m_pwm, 0);
         if (is_drive_mode_reversal(p_motor.m_drive_mode, p_drive_mode))
             sleep_us(DIRECTION_CHANGE_DEADTIME_US);
     }
@@ -171,30 +123,30 @@ void MotorDriver::set_motor(const pinout::MotorPins& p_pins,
     switch (p_drive_mode)
     {
     case DriveMode::Forward:
-        gpio_put(p_pins.m_in1, 1);
-        gpio_put(p_pins.m_in2, 0);
+        pico_common::write_gpio_output(p_pins.m_in1, true);
+        pico_common::write_gpio_output(p_pins.m_in2, false);
         applied_pwm_duty = clamped_speed;
-        set_pwm_duty(p_pins.m_pwm, applied_pwm_duty);
+        pico_common::set_pwm_output_level(p_pins.m_pwm, applied_pwm_duty);
         break;
 
     case DriveMode::Reverse:
-        gpio_put(p_pins.m_in1, 0);
-        gpio_put(p_pins.m_in2, 1);
+        pico_common::write_gpio_output(p_pins.m_in1, false);
+        pico_common::write_gpio_output(p_pins.m_in2, true);
         applied_pwm_duty = clamped_speed;
-        set_pwm_duty(p_pins.m_pwm, applied_pwm_duty);
+        pico_common::set_pwm_output_level(p_pins.m_pwm, applied_pwm_duty);
         break;
 
     case DriveMode::Brake:
-        gpio_put(p_pins.m_in1, 1);
-        gpio_put(p_pins.m_in2, 1);
-        set_pwm_duty(p_pins.m_pwm, applied_pwm_duty);
+        pico_common::write_gpio_output(p_pins.m_in1, true);
+        pico_common::write_gpio_output(p_pins.m_in2, true);
+        pico_common::set_pwm_output_level(p_pins.m_pwm, applied_pwm_duty);
         break;
 
     case DriveMode::Stop:
     default:
-        gpio_put(p_pins.m_in1, 0);
-        gpio_put(p_pins.m_in2, 0);
-        set_pwm_duty(p_pins.m_pwm, applied_pwm_duty);
+        pico_common::write_gpio_output(p_pins.m_in1, false);
+        pico_common::write_gpio_output(p_pins.m_in2, false);
+        pico_common::set_pwm_output_level(p_pins.m_pwm, applied_pwm_duty);
         break;
     }
 
