@@ -5,7 +5,6 @@
 
 namespace protocol
 {
-inline constexpr std::uint8_t SESSION_HELLO_PACKET_COUNT = 3;
 inline constexpr std::size_t CTRL_STATE_WIRE_SIZE = 2 * sizeof(std::uint16_t);
 
 struct CtrlState
