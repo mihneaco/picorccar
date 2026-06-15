@@ -17,7 +17,11 @@ constexpr std::uint32_t COMMAND_TIMEOUT_MS = 250;
 
 void print_packet(const CommandReceiver::ReceivedCommand& p_received_command)
 {
-    LOG_TRACE("UDP packet PLACEHOLDER");
+    LOG_TRACE("UDP packet x=%u y=%u sent_ms=%u received_ms=%u",
+              static_cast<unsigned>(p_received_command.m_ctrl_state.m_x_axis),
+              static_cast<unsigned>(p_received_command.m_ctrl_state.m_y_axis),
+              static_cast<unsigned>(p_received_command.m_sent_ms),
+              static_cast<unsigned>(p_received_command.m_received_ms));
 }
 }
 

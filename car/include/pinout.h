@@ -1,9 +1,11 @@
 #pragma once
 
-#include "picorccar/pinout_common.h"
+#include "picorccar/pico_common.h"
 
 namespace pinout
 {
+using Pin = pico_common::Pin;
+
 constexpr Pin MOTOR_A_PWM = 2;
 constexpr Pin MOTOR_A_IN2 = 3;
 constexpr Pin MOTOR_A_IN1 = 4;

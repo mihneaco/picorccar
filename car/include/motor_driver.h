@@ -71,7 +71,6 @@ private:
     static constexpr std::uint32_t DIRECTION_CHANGE_DEADTIME_US = 100;
 
     void init_pins();
-    void init_control_pin(const pinout::Pin p_pin);
     void init_pwm_pin(const pinout::Pin p_pwm_pin);
     void set_pwm_duty(const pinout::Pin p_pwm_pin, const std::uint16_t p_duty);
     bool is_known_pwm_pin(const pinout::Pin p_pwm_pin) const;

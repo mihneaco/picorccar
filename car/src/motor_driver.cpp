@@ -74,22 +74,14 @@ void MotorDriver::init_pins()
 {
     LOG_DEBUG();
 
-    init_control_pin(m_pins.m_motor_a.m_in1);
-    init_control_pin(m_pins.m_motor_a.m_in2);
-    init_control_pin(m_pins.m_motor_b.m_in1);
-    init_control_pin(m_pins.m_motor_b.m_in2);
-    init_control_pin(m_pins.m_standby);
+    pico_common::init_gpio_pin(m_pins.m_motor_a.m_in1, pico_common::GpioDirection::Output);
+    pico_common::init_gpio_pin(m_pins.m_motor_a.m_in2, pico_common::GpioDirection::Output);
+    pico_common::init_gpio_pin(m_pins.m_motor_b.m_in1, pico_common::GpioDirection::Output);
+    pico_common::init_gpio_pin(m_pins.m_motor_b.m_in2, pico_common::GpioDirection::Output);
+    pico_common::init_gpio_pin(m_pins.m_standby, pico_common::GpioDirection::Output);
 
     init_pwm_pin(m_pins.m_motor_a.m_pwm);
     init_pwm_pin(m_pins.m_motor_b.m_pwm);
-}
-
-void MotorDriver::init_control_pin(const pinout::Pin p_pin)
-{
-    LOG_DEBUG("pin=%u", static_cast<uint>(p_pin));
-
-    gpio_init(p_pin);
-    gpio_set_dir(p_pin, GPIO_OUT);
 }
 
 void MotorDriver::init_pwm_pin(const pinout::Pin p_pwm_pin)
