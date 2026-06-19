@@ -3,6 +3,7 @@ project(picorccar_controller NONE)
 add_executable(${PROJECT_NAME}
     src/joystick_controller.cpp
     src/main.cpp
+    src/remote_controller.cpp
     src/command_sender.cpp
     ${CMAKE_SOURCE_DIR}/third_party/ulog/ulog.c
 )

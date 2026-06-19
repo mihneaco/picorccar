@@ -33,6 +33,8 @@ constexpr DriverPins MOTOR_DRIVER_PINS
 class MotorDriver
 {
 public:
+    static constexpr std::uint16_t MAX_PWM_DUTY = 1000;
+
     enum class DriveMode
     {
         Stop,
@@ -60,7 +62,7 @@ private:
         std::uint16_t m_pwm_duty = 0;
     };
 
-    static constexpr std::uint16_t PWM_WRAP = 1000;
+    static constexpr std::uint16_t PWM_WRAP = MAX_PWM_DUTY;
     static constexpr std::uint16_t PWM_FULL_DUTY = PWM_WRAP + 1;
     static constexpr std::uint32_t PWM_TARGET_HZ = 20000;
     static constexpr std::uint32_t DIRECTION_CHANGE_DEADTIME_US = 100;

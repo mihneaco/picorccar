@@ -1,6 +1,7 @@
 project(picorccar_car NONE)
 
 add_executable(${PROJECT_NAME}
+    src/car_controller.cpp
     src/motor_driver.cpp
     src/main.cpp
     src/command_receiver.cpp
