@@ -20,6 +20,7 @@
 
 namespace pico_common
 {
+// uint is overkill but its what the pico sdk uses. Using it for convenience.
 using Pin = uint;
 
 enum class GpioDirection

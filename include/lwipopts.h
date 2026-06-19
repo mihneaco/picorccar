@@ -1,13 +1,12 @@
 #pragma once
 
-// Common settings used in most of the pico_w examples
-// (see https://www.nongnu.org/lwip/2_1_x/group__lwip__opts.html for details)
+// Based on the pico_w examples
+// https://github.com/raspberrypi/pico-examples/blob/master/pico_w/wifi/lwipopts_examples_common.h
 
-// allow override in some examples
 #ifndef NO_SYS
 #define NO_SYS 1
 #endif
-// allow override in some examples
+
 #ifndef LWIP_SOCKET
 #define LWIP_SOCKET 0
 #endif
@@ -46,7 +45,7 @@
 #define LWIP_IPV4 1
 #define LWIP_TCP 1
 #define LWIP_UDP 1
-#define LWIP_DNS 1
+#define LWIP_DNS 0
 #define LWIP_TCP_KEEPALIVE 1
 #define LWIP_NETIF_TX_SINGLE_PBUF 1
 #define DHCP_DOES_ARP_CHECK 0

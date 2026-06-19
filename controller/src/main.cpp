@@ -1,6 +1,4 @@
-#include "joystick_controller.h"
-#include "pinout.h"
-#include "command_sender.h"
+#include "main.h"
 
 #include "picorccar/logger.h"
 #include "picorccar/protocol.h"
@@ -17,14 +15,19 @@ constexpr std::uint16_t UDP_SERVER_PORT     = PICORCCAR_UDP_SERVER_PORT;
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 }
 
-int main()
+Main::Main()
+    : m_command_sender(ACCESS_POINT_SSID,
+                       ACCESS_POINT_PSK,
+                       UDP_SERVER_IP,
+                       UDP_SERVER_PORT),
+      m_joystick_controller(pinout::JOYSTICK_PINS)
 {
-    stdio_init_all();
-    logger::init(LOGGING_THRESHOLD);
+}
 
+int Main::run()
+{
     LOG_INFO("Initializing Joystick Controller");
-    JoystickController joystick_controller(pinout::JOYSTICK_PINS);
-    if (!joystick_controller.init())
+    if (!m_joystick_controller.init())
     {
         LOG_CRITICAL("Joystick controller initialization failed");
         while (true)
@@ -32,11 +35,7 @@ int main()
     }
 
     LOG_INFO("Initializing Command Sender");
-    CommandSender command_sender(ACCESS_POINT_SSID,
-                                 ACCESS_POINT_PSK,
-                                 UDP_SERVER_IP,
-                                 UDP_SERVER_PORT);
-    if (!command_sender.init())
+    if (!m_command_sender.init())
     {
         LOG_CRITICAL("Command sender initialization failed");
         while (true)
@@ -46,28 +45,77 @@ int main()
     // MAIN LOOP
     LOG_INFO("Starting Controller MAIN LOOP");
     JoystickController::Sample joystick_sample{};
-    command_sender.start_new_session();
-    bool was_button_pressed = false;
     while (true)
     {
-        if (joystick_controller.read(joystick_sample))
-        {
-            if (joystick_sample.m_bpressed != was_button_pressed)
-            {
-                if (joystick_sample.m_bpressed == true)
-                    command_sender.start_new_session();
-
-                was_button_pressed = joystick_sample.m_bpressed;
-            }
-
-            const protocol::CtrlState controller_state {
-                joystick_sample.m_x_axis,
-                joystick_sample.m_y_axis};
-            command_sender.send_controller_state(controller_state);
-        }
+        if (m_joystick_controller.read(joystick_sample))
+            handle_joystick_sample(joystick_sample);
 
         sleep_ms(MAIN_LOOP_SLEEP_MS);
     }
 
     return 0;
+}
+
+void Main::handle_joystick_sample(const JoystickController::Sample& p_sample)
+{
+    handle_joystick_button(p_sample.m_bpressed);
+    handle_joystick_position(p_sample);
+}
+
+void Main::handle_joystick_button(const bool p_button_pressed)
+{
+    if (p_button_pressed == m_was_button_pressed)
+        return;
+
+    LOG_INFO("Joystick button %s", p_button_pressed ? "pressed" : "released");
+    m_was_button_pressed = p_button_pressed;
+
+    if (p_button_pressed == false)
+        return;
+
+    m_session_started = m_command_sender.start_new_session();
+    m_last_sent_controller_state.reset();
+    m_last_successful_send_ms = 0;
+    LOG_INFO("Button-triggered session restart %s",
+             m_session_started ? "succeeded" : "failed");
+}
+
+void Main::handle_joystick_position(const JoystickController::Sample& p_sample)
+{
+    if (!m_session_started)
+        return;
+
+    const protocol::CtrlState controller_state {
+        p_sample.m_x_axis,
+        p_sample.m_y_axis};
+    const std::uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+    const bool keep_alive_due =
+        m_last_sent_controller_state.has_value() &&
+        (now_ms - m_last_successful_send_ms) >= protocol::KEEP_ALIVE_MS;
+
+    if (!m_last_sent_controller_state.has_value()
+        || !controller_state.is_approx_eq(*m_last_sent_controller_state)
+        || keep_alive_due)
+    {
+        if (m_command_sender.send_controller_state(controller_state))
+        {
+            m_last_sent_controller_state = controller_state;
+            m_last_successful_send_ms = now_ms;
+        }
+    }
+}
+
+int main()
+{
+    stdio_init_all();
+    logger::init(LOGGING_THRESHOLD);
+    /*
+        @note Delay to allow opening of a serial conn to read the logs.
+        @todo Remove this or move under ifdef DEBUG.
+    */
+    sleep_ms(3000);
+    LOG_INFO("Logging initialized");
+
+    Main main_app;
+    return main_app.run();
 }

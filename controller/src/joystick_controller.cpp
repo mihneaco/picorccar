@@ -71,5 +71,19 @@ bool JoystickController::read(Sample& p_sample) const
     p_sample.m_bpressed = pico_common::read_gpio_input(m_pins.m_bpressed) == JOYSTICK_BUTTON_PRESSED_LEVEL;
     p_sample.m_x_axis = pico_common::read_adc_input(pico_common::gpio_to_adc_input(m_pins.m_x_axis));
     p_sample.m_y_axis = pico_common::read_adc_input(pico_common::gpio_to_adc_input(m_pins.m_y_axis));
+
+    /* @todo REMOVE THIS OR MOVE UNDER DBG
+       @description print ~ every 1s that means every 50 packets if main sleeps every 20 ms.
+     */
+    static uint8_t cnt = 0;
+    if (++cnt == 50)
+    {
+        cnt = 0;
+        LOG_DEBUG("p_sample.m_bpressed: %u; p_sample.m_x_axis: %u; p_sample.m_y_axis: %u",
+                  p_sample.m_bpressed,
+                  p_sample.m_x_axis,
+                  p_sample.m_y_axis);
+    }
+
     return true;
 }

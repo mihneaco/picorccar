@@ -135,12 +135,14 @@ bool CommandSender::init()
     cyw43_arch_lwip_end();
 
     m_initialized = true;
-    LOG_INFO("Command sender ready for UDP %s:%u", remote_address, static_cast<unsigned>(m_remote_port));
+    LOG_INFO("Command sender ready");
     return true;
 }
 
 bool CommandSender::start_new_session()
 {
+    LOG_INFO();
+
     if (!m_initialized)
     {
         LOG_WARNING("Command sender session start requested before initialization");
