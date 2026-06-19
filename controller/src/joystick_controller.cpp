@@ -6,6 +6,9 @@
 namespace
 {
 constexpr bool JOYSTICK_BUTTON_PRESSED_LEVEL = false;
+#ifdef PICORCCAR_DEBUG
+constexpr std::uint8_t DEBUG_SAMPLE_LOG_PERIOD = 50;
+#endif
 }
 
 JoystickController::JoystickController(const pinout::JoystickControllerPins p_pins) : m_pins(p_pins)
@@ -72,18 +75,17 @@ bool JoystickController::read(Sample& p_sample) const
     p_sample.m_x_axis = pico_common::read_adc_input(pico_common::gpio_to_adc_input(m_pins.m_x_axis));
     p_sample.m_y_axis = pico_common::read_adc_input(pico_common::gpio_to_adc_input(m_pins.m_y_axis));
 
-    /* @todo REMOVE THIS OR MOVE UNDER DBG
-       @description print ~ every 1s that means every 50 packets if main sleeps every 20 ms.
-     */
-    static uint8_t cnt = 0;
-    if (++cnt == 50)
+#ifdef PICORCCAR_DEBUG
+    static std::uint8_t sample_log_count = 0;
+    if (++sample_log_count == DEBUG_SAMPLE_LOG_PERIOD)
     {
-        cnt = 0;
+        sample_log_count = 0;
         LOG_DEBUG("p_sample.m_bpressed: %u; p_sample.m_x_axis: %u; p_sample.m_y_axis: %u",
                   p_sample.m_bpressed,
                   p_sample.m_x_axis,
                   p_sample.m_y_axis);
     }
+#endif
 
     return true;
 }

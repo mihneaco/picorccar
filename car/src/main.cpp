@@ -13,17 +13,23 @@ constexpr char ACCESS_POINT_SSID[] = PICORCCAR_ACCESS_POINT_SSID;
 constexpr char ACCESS_POINT_PSK[] = PICORCCAR_ACCESS_POINT_PSK;
 constexpr std::uint16_t UDP_SERVER_PORT = PICORCCAR_UDP_SERVER_PORT;
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
+#ifdef PICORCCAR_DEBUG
+constexpr std::uint32_t DEBUG_PACKET_TRACE_DELAY_MS = 500;
+constexpr std::uint32_t DEBUG_STARTUP_LOG_DELAY_MS = 3000;
+#endif
 
 void print_packet(const CommandReceiver::ReceivedCommand& p_received_command)
 {
+#ifdef PICORCCAR_DEBUG
     LOG_TRACE("UDP packet x=%u y=%u sent_ms=%u received_ms=%u",
               static_cast<unsigned>(p_received_command.m_ctrl_state.m_x_axis),
               static_cast<unsigned>(p_received_command.m_ctrl_state.m_y_axis),
               static_cast<unsigned>(p_received_command.m_sent_ms),
               static_cast<unsigned>(p_received_command.m_received_ms));
-
-    // @todo DELETE THIS. Debug pourposes so as not to spam with logging.
-    sleep_ms(500);
+    sleep_ms(DEBUG_PACKET_TRACE_DELAY_MS);
+#else
+    (void)p_received_command;
+#endif
 }
 }
 
@@ -85,11 +91,10 @@ int main()
     */
     stdio_init_all();
     logger::init(LOGGING_THRESHOLD);
-    /*
-        @note Delay to allow opening of a serial conn to read the logs.
-        @todo Remove this or move under ifdef DEBUG.
-    */
-    sleep_ms(3000);
+#ifdef PICORCCAR_DEBUG
+    // Delay to allow opening a serial connection for debug logs.
+    sleep_ms(DEBUG_STARTUP_LOG_DELAY_MS);
+#endif
     LOG_INFO("Logging initialized");
 
     Main main_app;

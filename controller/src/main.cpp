@@ -13,6 +13,9 @@ constexpr char          UDP_SERVER_IP[]     = PICORCCAR_UDP_SERVER_IP;
 constexpr std::uint16_t UDP_SERVER_PORT     = PICORCCAR_UDP_SERVER_PORT;
 
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
+#ifdef PICORCCAR_DEBUG
+constexpr std::uint32_t DEBUG_STARTUP_LOG_DELAY_MS = 3000;
+#endif
 }
 
 Main::Main()
@@ -109,11 +112,10 @@ int main()
 {
     stdio_init_all();
     logger::init(LOGGING_THRESHOLD);
-    /*
-        @note Delay to allow opening of a serial conn to read the logs.
-        @todo Remove this or move under ifdef DEBUG.
-    */
-    sleep_ms(3000);
+#ifdef PICORCCAR_DEBUG
+    // Delay to allow opening a serial connection for debug logs.
+    sleep_ms(DEBUG_STARTUP_LOG_DELAY_MS);
+#endif
     LOG_INFO("Logging initialized");
 
     Main main_app;
