@@ -2,6 +2,7 @@
 
 #include "picorccar/logger.h"
 
+#include <algorithm>
 #include "pico/stdlib.h"
 
 namespace
@@ -10,19 +11,6 @@ constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 #ifdef PICORCCAR_DEBUG
 constexpr std::uint32_t DEBUG_PACKET_TRACE_PERIOD_MS = 500;
 #endif
-
-constexpr std::int32_t clamp_signed(const std::int32_t p_value,
-                                    const std::int32_t p_min,
-                                    const std::int32_t p_max)
-{
-    if (p_value < p_min)
-        return p_min;
-
-    if (p_value > p_max)
-        return p_max;
-
-    return p_value;
-}
 
 void print_packet(const CommandReceiver::ReceivedCommand& p_received_command)
 {
@@ -129,13 +117,13 @@ void CarController::apply(const protocol::CtrlState& p_ctrl_state)
 
     // Differential-drive mix: throttle drives both motors together, steering biases them apart.
     const std::int32_t motor_a_command =
-        clamp_signed((throttle_command + steer_command) * m_config.m_motor_a_sign,
-                     -max_pwm_duty,
-                     max_pwm_duty);
+        std::clamp((throttle_command + steer_command) * m_config.m_motor_a_sign,
+                   -max_pwm_duty,
+                   max_pwm_duty);
     const std::int32_t motor_b_command =
-        clamp_signed((throttle_command - steer_command) * m_config.m_motor_b_sign,
-                     -max_pwm_duty,
-                     max_pwm_duty);
+        std::clamp((throttle_command - steer_command) * m_config.m_motor_b_sign,
+                   -max_pwm_duty,
+                   max_pwm_duty);
 
     const MotorCommand motor_a = to_motor_command(motor_a_command);
     const MotorCommand motor_b = to_motor_command(motor_b_command);
@@ -171,9 +159,9 @@ std::int32_t CarController::axis_to_signed_command(const std::uint16_t p_adc_val
         (adjusted_delta * static_cast<std::int32_t>(m_config.m_max_pwm_duty)) / usable_range;
     const std::int32_t signed_command = is_positive ? scaled_command : -scaled_command;
 
-    return clamp_signed(signed_command * p_sign,
-                        -static_cast<std::int32_t>(m_config.m_max_pwm_duty),
-                        static_cast<std::int32_t>(m_config.m_max_pwm_duty));
+    return std::clamp(signed_command * p_sign,
+                      -static_cast<std::int32_t>(m_config.m_max_pwm_duty),
+                      static_cast<std::int32_t>(m_config.m_max_pwm_duty));
 }
 
 CarController::MotorCommand CarController::to_motor_command(const std::int32_t p_signed_command) const
