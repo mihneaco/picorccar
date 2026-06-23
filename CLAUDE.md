@@ -5,6 +5,9 @@ Dual RP2350 (Pico 2 W) firmware: one drives two DC motors via TB6612FNG, the oth
 
 **Priorities:** correctness and hardware safety > deterministic behavior > minimal blast radius > RAM/flash > maintainability.
 
+## Claude code 
+- Avoid using the Task tool/subagents unless a task requires parallel independent exploration. Prefer direct execution for single-file edits, debugging, and sequential work.
+
 ## Code conventions
 - Member prefix: `m_`, parameter prefix: `p_`, locals: no prefix.
 - Named constants for all pins, timing, and hardware values. No magic numbers.

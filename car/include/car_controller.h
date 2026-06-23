@@ -11,28 +11,43 @@ class CarController
 public:
     struct Config
     {
-        static constexpr std::uint16_t ADC_MIN = 0;
-        static constexpr std::uint16_t ADC_MAX = 4095;
-        static constexpr std::uint16_t ADC_CENTER = 2048;
-        static constexpr std::uint16_t ADC_DEADZONE = 128;
-        static constexpr std::int8_t THROTTLE_SIGN = 1;
-        static constexpr std::int8_t STEER_SIGN = 1;
-        static constexpr std::int8_t MOTOR_A_SIGN = 1;
-        static constexpr std::int8_t MOTOR_B_SIGN = 1;
-
-        std::uint16_t m_adc_min = ADC_MIN;
-        std::uint16_t m_adc_max = ADC_MAX;
-        std::uint16_t m_adc_center = ADC_CENTER;
-        std::uint16_t m_adc_deadzone = ADC_DEADZONE;
-        std::int8_t m_throttle_sign = THROTTLE_SIGN;
-        std::int8_t m_steer_sign = STEER_SIGN;
-        std::int8_t m_motor_a_sign = MOTOR_A_SIGN;
-        std::int8_t m_motor_b_sign = MOTOR_B_SIGN;
-        std::uint16_t m_max_pwm_duty = MotorDriver::MAX_PWM_DUTY;
+        std::uint16_t m_adc_min{};
+        std::uint16_t m_adc_max{};
+        std::uint16_t m_adc_center{};
+        std::uint16_t m_adc_deadzone{};
+        std::int8_t m_throttle_sign{};
+        std::int8_t m_steer_sign{};
+        std::int8_t m_motor_a_sign{};
+        std::int8_t m_motor_b_sign{};
+        std::uint16_t m_max_pwm_duty{};
     };
 
-    CarController(CommandReceiver& p_command_receiver,
-                  MotorDriver& p_motor_driver);
+    static constexpr Config ConfigDefault = {
+        .m_adc_min      = 0,
+        .m_adc_max      = 4095,
+        .m_adc_center   = 2048,
+        .m_adc_deadzone = 128,
+        .m_throttle_sign = -1,
+        .m_steer_sign    = 1,
+        .m_motor_a_sign  = -1,
+        .m_motor_b_sign  = 1,
+        .m_max_pwm_duty  = MotorDriver::MAX_PWM_DUTY,
+    };
+
+    // Same as ConfigDefault but caps commanded duty at half the driver max for controllability
+    // and to limit peak current draw / brownout risk.
+    static constexpr Config ConfigHalfDuty = {
+        .m_adc_min       = 0,
+        .m_adc_max       = 4095,
+        .m_adc_center    = 2048,
+        .m_adc_deadzone  = 128,
+        .m_throttle_sign = -1,
+        .m_steer_sign    = 1,
+        .m_motor_a_sign  = -1,
+        .m_motor_b_sign  = 1,
+        .m_max_pwm_duty  = MotorDriver::MAX_PWM_DUTY / 2,
+    };
+
     CarController(CommandReceiver& p_command_receiver,
                   MotorDriver& p_motor_driver,
                   Config p_config);

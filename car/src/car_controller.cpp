@@ -3,6 +3,7 @@
 #include "picorccar/logger.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include "pico/stdlib.h"
 
 namespace
@@ -32,12 +33,6 @@ void print_packet(const CommandReceiver::ReceivedCommand& p_received_command)
 }
 
 CarController::CarController(CommandReceiver& p_command_receiver,
-                             MotorDriver& p_motor_driver)
-    : CarController(p_command_receiver, p_motor_driver, Config{})
-{
-}
-
-CarController::CarController(CommandReceiver& p_command_receiver,
                              MotorDriver& p_motor_driver,
                              const Config p_config)
     : m_command_receiver(p_command_receiver),
@@ -58,7 +53,6 @@ bool CarController::init()
 
     LOG_INFO("Initializing Motor Driver");
     m_motor_driver.init();
-    m_motor_driver.stop_all();
 
     LOG_INFO("Initializing Command Receiver");
     if (!m_command_receiver.init())
@@ -116,12 +110,14 @@ void CarController::apply(const protocol::CtrlState& p_ctrl_state)
     const std::int32_t max_pwm_duty = static_cast<std::int32_t>(m_config.m_max_pwm_duty);
 
     // Differential-drive mix: throttle drives both motors together, steering biases them apart.
+    // Standard convention: positive steer = counter-clockwise (left turn), so the left motor (A)
+    // slows and the right motor (B) speeds up.
     const std::int32_t motor_a_command =
-        std::clamp((throttle_command + steer_command) * m_config.m_motor_a_sign,
+        std::clamp((throttle_command - steer_command) * m_config.m_motor_a_sign,
                    -max_pwm_duty,
                    max_pwm_duty);
     const std::int32_t motor_b_command =
-        std::clamp((throttle_command - steer_command) * m_config.m_motor_b_sign,
+        std::clamp((throttle_command + steer_command) * m_config.m_motor_b_sign,
                    -max_pwm_duty,
                    max_pwm_duty);
 
@@ -142,7 +138,7 @@ std::int32_t CarController::axis_to_signed_command(const std::uint16_t p_adc_val
 {
     const std::int32_t signed_delta = static_cast<std::int32_t>(p_adc_value) -
                                       static_cast<std::int32_t>(m_config.m_adc_center);
-    const std::int32_t abs_delta = signed_delta >= 0 ? signed_delta : -signed_delta;
+    const std::int32_t abs_delta = std::abs(signed_delta);
     if (abs_delta <= static_cast<std::int32_t>(m_config.m_adc_deadzone))
         return 0;
 

@@ -15,3 +15,5 @@ compile_commands.json
 !.vscode/extensions.json
 .codex
 .agents
+memory/
+.claude/
