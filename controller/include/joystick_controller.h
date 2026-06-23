@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 
 #include "pinout.h"
 
@@ -26,18 +27,28 @@ class JoystickController
 public:
     struct Sample
     {
+        // Value domain of the axis readings: raw ADC counts in [0, ADC_MAX_VALUE],
+        // resting center assumed at mid-scale.
+        static constexpr std::uint8_t  ADC_INPUT_BITS = 12;
+        static constexpr std::uint16_t ADC_MAX_VALUE = (1u << ADC_INPUT_BITS) - 1u;
+        static constexpr std::uint16_t ADC_CENTER = (ADC_MAX_VALUE + 1) / 2;
+
+        // Deleted so a Sample can only exist via the clamping constructor.
+        Sample() = delete;
+        Sample(bool p_bpressed, std::uint16_t p_x_axis, std::uint16_t p_y_axis);
+
         bool          m_bpressed{};
         std::uint16_t m_x_axis{};
         std::uint16_t m_y_axis{};
-    };
 
-    static constexpr std::uint8_t ADC_INPUT_BITS = 12;
-    static constexpr std::uint16_t ADC_MAX_VALUE = (1u << ADC_INPUT_BITS) - 1u;
+        // Largest deflection from the resting center across both axes, in ADC counts.
+        std::uint16_t max_center_offset() const;
+    };
 
     explicit JoystickController(pinout::JoystickControllerPins p_pins);
 
     bool init();
-    bool read(Sample& p_sample) const;
+    std::optional<Sample> read() const;
 
 private:
     pinout::JoystickControllerPins m_pins;

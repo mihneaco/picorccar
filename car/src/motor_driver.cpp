@@ -3,6 +3,8 @@
 
 #include "pico/stdlib.h"
 
+#include <algorithm>
+
 namespace
 {
 constexpr const char* drive_mode_name(const MotorDriver::DriveMode p_drive_mode)
@@ -95,7 +97,7 @@ void MotorDriver::set_motor(const pinout::MotorPins& p_pins,
 
     if (p_pwm_duty > PWM_WRAP)
         LOG_WARNING("speed > PWM_WRAP, defaulting to PWM_WRAP");
-    const std::uint16_t clamped_speed = p_pwm_duty > PWM_WRAP ? PWM_WRAP : p_pwm_duty;
+    const std::uint16_t clamped_speed = std::min(p_pwm_duty, PWM_WRAP);
 
     // Drop PWM before changing direction to avoid slamming directly through a reversal.
     if (p_drive_mode != p_motor.m_drive_mode)
@@ -104,8 +106,6 @@ void MotorDriver::set_motor(const pinout::MotorPins& p_pins,
         if (is_drive_mode_reversal(p_motor.m_drive_mode, p_drive_mode))
             sleep_us(DIRECTION_CHANGE_DEADTIME_US);
     }
-
-    std::uint16_t applied_pwm_duty = PWM_FULL_DUTY;
 
     /*
         TB6612 direction table with STBY=H. Forward/reverse assume the current
@@ -120,6 +120,7 @@ void MotorDriver::set_motor(const pinout::MotorPins& p_pins,
         | Stop    | L   | L   | H   |
         +---------+-----+-----+-----+
     */
+    std::uint16_t applied_pwm_duty = PWM_FULL_DUTY;
     switch (p_drive_mode)
     {
     case DriveMode::Forward:

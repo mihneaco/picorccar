@@ -93,6 +93,7 @@ void CarController::run()
         if (!command_timed_out && packet_age_ms > protocol::ACTIVE_TIMING.m_command_timeout_ms)
         {
             stop();
+            LOG_INFO("Session timeout hit. Droping session");
             m_command_receiver.reset_session();
             command_timed_out = true;
         }

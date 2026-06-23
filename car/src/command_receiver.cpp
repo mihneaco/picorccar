@@ -162,11 +162,6 @@ void CommandReceiver::receive_callback(pbuf* p_packet)
 
     if (mode == protocol::RCCarPacket::Mode::ARM)
     {
-        // A fresh ARM always (re)starts a session, even if one is already armed.
-        // The controller mints a new random session id on every button press;
-        // refusing to re-arm here pins the car to the stale id, so every later
-        // COMMAND is rejected until the failsafe trips and the session must be
-        // manually re-armed.
         critical_section_enter_blocking(&m_packet_lock);
         {
             m_active_session_id = session_id;
