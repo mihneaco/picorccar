@@ -55,6 +55,9 @@ void RemoteController::run()
     JoystickController::Sample joystick_sample{};
     while (true)
     {
+        if (!m_command_sender.is_connected() && !m_command_sender.connect())
+            continue;
+
         if (m_joystick_controller.read(joystick_sample))
             handle_joystick_sample(joystick_sample);
 
@@ -97,7 +100,7 @@ void RemoteController::handle_joystick_position(const JoystickController::Sample
     const std::uint32_t now_ms = to_ms_since_boot(get_absolute_time());
     const bool keep_alive_due =
         m_last_sent_controller_state.has_value()
-        && (now_ms - m_last_successful_send_ms) >= protocol::KEEP_ALIVE_MS;
+        && (now_ms - m_last_successful_send_ms) >= protocol::ACTIVE_TIMING.m_command_interval_ms;
 
     if (!m_last_sent_controller_state.has_value()
         || !controller_state.is_approx_eq(*m_last_sent_controller_state)

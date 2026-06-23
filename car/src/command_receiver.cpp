@@ -1,6 +1,7 @@
 #include "command_receiver.h"
 
 #include "picorccar/logger.h"
+#include "picorccar/pico_common.h"
 
 #include <cstring>
 
@@ -15,13 +16,6 @@
 
 namespace
 {
-constexpr std::size_t RCCAR_PACKET_MODE_OFFSET = 0;
-constexpr std::size_t RCCAR_PACKET_SESSION_ID_OFFSET = RCCAR_PACKET_MODE_OFFSET + sizeof(std::uint8_t);
-constexpr std::size_t RCCAR_PACKET_SESSION_MS_OFFSET = RCCAR_PACKET_SESSION_ID_OFFSET + sizeof(std::uint32_t);
-constexpr std::size_t RCCAR_PACKET_PAYLOAD_OFFSET = RCCAR_PACKET_SESSION_MS_OFFSET + sizeof(std::uint32_t);
-
-constexpr std::size_t CTRL_STATE_X_AXIS_OFFSET = 0;
-constexpr std::size_t CTRL_STATE_Y_AXIS_OFFSET = CTRL_STATE_X_AXIS_OFFSET + sizeof(std::uint16_t);
 }
 
 CommandReceiver::CommandReceiver(const char* const p_access_point_ssid,
@@ -48,6 +42,19 @@ bool CommandReceiver::init()
         return true;
     }
 
+    if (!init_wifi())
+        return false;
+
+    if (!init_server())
+        return false;
+
+    m_initialized = true;
+    LOG_INFO("Command receiver listening on UDP port %u", static_cast<unsigned>(m_server_port));
+    return true;
+}
+
+bool CommandReceiver::init_wifi()
+{
     // Init CYW43
     LOG_INFO("initializing CYW43");
     const int cyw43_init_result = cyw43_arch_init();
@@ -56,8 +63,7 @@ bool CommandReceiver::init()
         LOG_CRITICAL("CYW43 init failed: %d", cyw43_init_result);
         return false;
     }
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
-    m_cyw43_initialized = true;
+    pico_common::enable_led();
 
     // Enable AP mode
     LOG_INFO("enabling AP mode");
@@ -65,14 +71,20 @@ bool CommandReceiver::init()
                               m_access_point_password,
                               CYW43_AUTH_WPA2_AES_PSK);
 
-    // Bind server and set udp_recv cbk
+    m_wifi_initialized = true;
+    return true;
+}
+
+bool CommandReceiver::init_server()
+{
     cyw43_arch_lwip_begin();
     {
         m_udp_pcb = udp_new_ip_type(IPADDR_TYPE_ANY);
         if (m_udp_pcb == nullptr)
         {
-            cyw43_arch_lwip_end();
             LOG_CRITICAL("udp_new_ip_type failed");
+
+            cyw43_arch_lwip_end();
             cleanup();
             return false;
         }
@@ -80,16 +92,18 @@ bool CommandReceiver::init()
         const err_t bind_result = udp_bind(m_udp_pcb, IP_ANY_TYPE, m_server_port);
         if (bind_result != ERR_OK)
         {
+            LOG_CRITICAL("udp_bind failed: %d", static_cast<int>(bind_result));
+
             udp_remove(m_udp_pcb);
             m_udp_pcb = nullptr;
             cyw43_arch_lwip_end();
-            LOG_CRITICAL("udp_bind failed: %d", static_cast<int>(bind_result));
             cleanup();
+
             return false;
         }
 
         const udp_recv_fn receive_cbk = [] (void* p_arg,
-                                           udp_pcb* p_pcb,
+                                            udp_pcb* p_pcb,
                                             pbuf* p_packet,
                                             const ip_addr_t* p_remote_address,
                                             u16_t p_remote_port)
@@ -107,8 +121,6 @@ bool CommandReceiver::init()
     }
     cyw43_arch_lwip_end();
 
-    m_initialized = true;
-    LOG_INFO("Command receiver listening on UDP port %u", static_cast<unsigned>(m_server_port));
     return true;
 }
 
@@ -142,28 +154,30 @@ void CommandReceiver::receive_callback(pbuf* p_packet)
         return;
     }
 
-    const auto mode = static_cast<protocol::RCCarPacket::Mode>(payload[RCCAR_PACKET_MODE_OFFSET]);
+    const auto mode = static_cast<protocol::RCCarPacket::Mode>(payload[protocol::RCCAR_PACKET_MODE_OFFSET]);
 
     std::uint32_t session_id_be{};
-    std::memcpy(&session_id_be, &payload[RCCAR_PACKET_SESSION_ID_OFFSET], sizeof(session_id_be));
+    std::memcpy(&session_id_be, &payload[protocol::RCCAR_PACKET_SESSION_ID_OFFSET], sizeof(session_id_be));
     const std::uint32_t session_id = lwip_ntohl(session_id_be);
 
-    if (mode == protocol::RCCarPacket::Mode::HELLO)
+    if (mode == protocol::RCCarPacket::Mode::ARM)
     {
+        // A fresh ARM always (re)starts a session, even if one is already armed.
+        // The controller mints a new random session id on every button press;
+        // refusing to re-arm here pins the car to the stale id, so every later
+        // COMMAND is rejected until the failsafe trips and the session must be
+        // manually re-armed.
         critical_section_enter_blocking(&m_packet_lock);
         {
-            if (!m_session_armed)
-            {
-                m_active_session_id = session_id;
-                m_session_armed = true;
-                m_has_packet = false;
-            }
+            m_active_session_id = session_id;
+            m_session_armed = true;
+            m_has_packet = false;
         }
         critical_section_exit(&m_packet_lock);
         return;
     }
 
-    if (mode != protocol::RCCarPacket::Mode::COMMAND)
+    if (mode != protocol::RCCarPacket::Mode::COM)
     {
         LOG_DEBUG("Ignoring non-command packet mode=%u",
                   static_cast<unsigned>(mode));
@@ -177,13 +191,13 @@ void CommandReceiver::receive_callback(pbuf* p_packet)
         return;
 
     std::uint32_t session_ms_be{};
-    std::memcpy(&session_ms_be, &payload[RCCAR_PACKET_SESSION_MS_OFFSET], sizeof(session_ms_be));
+    std::memcpy(&session_ms_be, &payload[protocol::RCCAR_PACKET_SESSION_MS_OFFSET], sizeof(session_ms_be));
 
     std::uint16_t x_axis_be{};
-    std::memcpy(&x_axis_be, &payload[RCCAR_PACKET_PAYLOAD_OFFSET + CTRL_STATE_X_AXIS_OFFSET], sizeof(x_axis_be));
+    std::memcpy(&x_axis_be, &payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::CTRL_STATE_X_AXIS_OFFSET], sizeof(x_axis_be));
 
     std::uint16_t y_axis_be{};
-    std::memcpy(&y_axis_be, &payload[RCCAR_PACKET_PAYLOAD_OFFSET + CTRL_STATE_Y_AXIS_OFFSET], sizeof(y_axis_be));
+    std::memcpy(&y_axis_be, &payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::CTRL_STATE_Y_AXIS_OFFSET], sizeof(y_axis_be));
 
     ReceivedCommand latest_received_command{};
     latest_received_command.m_received_ms = to_ms_since_boot(get_absolute_time());
@@ -230,9 +244,6 @@ void CommandReceiver::reset_session()
 
 void CommandReceiver::cleanup()
 {
-    if (!m_initialized && m_udp_pcb == nullptr && !m_cyw43_initialized)
-        return;
-
     if (m_udp_pcb != nullptr)
     {
         cyw43_arch_lwip_begin();
@@ -244,12 +255,12 @@ void CommandReceiver::cleanup()
         cyw43_arch_lwip_end();
     }
 
-    if (m_cyw43_initialized)
+    if (m_wifi_initialized)
     {
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
+        pico_common::disable_led();
         cyw43_arch_disable_ap_mode();
         cyw43_arch_deinit();
-        m_cyw43_initialized = false;
+        m_wifi_initialized = false;
     }
 
     m_initialized = false;

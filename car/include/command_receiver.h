@@ -35,6 +35,8 @@ public:
     void reset_session();
 
 private:
+    bool init_wifi();
+    bool init_server();
     void receive_callback(pbuf* p_packet);
     void cleanup();
 
@@ -51,5 +53,5 @@ private:
     std::uint32_t m_active_session_id{};
     bool m_session_armed{};
     bool m_initialized{};
-    bool m_cyw43_initialized{};
+    bool m_wifi_initialized{};
 };

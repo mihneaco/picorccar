@@ -1,6 +1,7 @@
 #include "command_sender.h"
 
 #include "picorccar/logger.h"
+#include "picorccar/pico_common.h"
 
 #include <cstring>
 
@@ -20,16 +21,10 @@ namespace
 {
 constexpr std::uint32_t WIFI_CONNECT_TIMEOUT_MS = 10000;
 
-constexpr std::uint32_t SESSION_HELLO_PACKET_SPACING_MS = 20;
-constexpr std::uint8_t  SESSION_HELLO_PACKET_COUNT      =  3;
+constexpr std::uint32_t SESSION_ARM_PACKET_SPACING_MS = 20;
+constexpr std::uint8_t  SESSION_ARM_PACKET_COUNT      =  3;
 
-constexpr std::size_t CTRL_STATE_X_AXIS_OFFSET = 0;
-constexpr std::size_t CTRL_STATE_Y_AXIS_OFFSET = CTRL_STATE_X_AXIS_OFFSET + sizeof(std::uint16_t);
-
-constexpr std::size_t RCCAR_PACKET_MODE_OFFSET = 0;
-constexpr std::size_t RCCAR_PACKET_SESSION_ID_OFFSET = RCCAR_PACKET_MODE_OFFSET + sizeof(std::uint8_t);
-constexpr std::size_t RCCAR_PACKET_SESSION_MS_OFFSET = RCCAR_PACKET_SESSION_ID_OFFSET + sizeof(std::uint32_t);
-constexpr std::size_t RCCAR_PACKET_PAYLOAD_OFFSET = RCCAR_PACKET_SESSION_MS_OFFSET + sizeof(std::uint32_t);
+constexpr std::uint32_t RECONNECT_ATTEMPT_MS = 1000;
 }
 
 CommandSender::CommandSender(const char* const p_access_point_ssid,
@@ -68,6 +63,28 @@ bool CommandSender::init()
         return false;
     }
 
+    if (!init_wifi())
+        return false;
+
+    LOG_INFO("connecting to AP ssid=%s", m_access_point_ssid);
+    const int connect_result = cyw43_arch_wifi_connect_timeout_ms(m_access_point_ssid,
+                                                                  m_access_point_password,
+                                                                  CYW43_AUTH_WPA2_AES_PSK,
+                                                                  WIFI_CONNECT_TIMEOUT_MS);
+    if (connect_result != PICO_OK)
+    {
+        LOG_CRITICAL("Wi-Fi connect failed: %d", connect_result);
+        cleanup();
+        return false;
+    }
+
+    m_initialized = true;
+    LOG_INFO("Command sender ready");
+    return true;
+}
+
+bool CommandSender::init_wifi()
+{
     LOG_INFO("initializing CYW43");
     const int cyw43_init_result = cyw43_arch_init();
     if (cyw43_init_result != 0)
@@ -75,8 +92,7 @@ bool CommandSender::init()
         LOG_CRITICAL("CYW43 init failed: %d", cyw43_init_result);
         return false;
     }
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
-    m_cyw43_initialized = true;
+    pico_common::enable_led();
 
     LOG_INFO("enabling STA mode");
     cyw43_arch_enable_sta_mode();
@@ -94,21 +110,25 @@ bool CommandSender::init()
                        &station_gateway);
     }
     cyw43_arch_lwip_end();
+    m_wifi_initialized = true;
 
-    LOG_INFO("connecting to AP ssid=%s", m_access_point_ssid);
-    const int connect_result = cyw43_arch_wifi_connect_timeout_ms(m_access_point_ssid,
-                                                                  m_access_point_password,
-                                                                  CYW43_AUTH_WPA2_AES_PSK,
-                                                                  WIFI_CONNECT_TIMEOUT_MS);
-    if (connect_result != PICO_OK)
+    return true;
+}
+
+bool CommandSender::connect()
+{
+    if (!m_wifi_initialized)
     {
-        LOG_CRITICAL("Wi-Fi connect failed: %d", connect_result);
-        cleanup();
+        LOG_ERROR("Wifi not initialized, skiping connect()");
         return false;
     }
 
-    char remote_address[IPADDR_STRLEN_MAX]{};
-    ipaddr_ntoa_r(&m_remote_address, remote_address, sizeof(remote_address));
+    const std::uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+    if (now_ms - m_last_conn_attempt_ms < RECONNECT_ATTEMPT_MS)
+    {
+        return false;
+    }
+    m_last_conn_attempt_ms = now_ms;
 
     cyw43_arch_lwip_begin();
     {
@@ -121,22 +141,30 @@ bool CommandSender::init()
             return false;
         }
 
+        char remote_address[IPADDR_STRLEN_MAX]{};
+        ipaddr_ntoa_r(&m_remote_address, remote_address, sizeof(remote_address));
+
         const err_t connect_result = udp_connect(m_udp_pcb, &m_remote_address, m_remote_port);
         if (connect_result != ERR_OK)
         {
+            LOG_CRITICAL("udp_connect failed: %d", static_cast<int>(connect_result));
+
             udp_remove(m_udp_pcb);
             m_udp_pcb = nullptr;
             cyw43_arch_lwip_end();
-            LOG_CRITICAL("udp_connect failed: %d", static_cast<int>(connect_result));
             cleanup();
+
             return false;
         }
     }
     cyw43_arch_lwip_end();
 
-    m_initialized = true;
-    LOG_INFO("Command sender ready");
     return true;
+}
+
+bool CommandSender::is_connected()
+{
+    return m_initialized && m_udp_pcb != nullptr;
 }
 
 bool CommandSender::start_new_session()
@@ -152,16 +180,16 @@ bool CommandSender::start_new_session()
     m_session_id = get_rand_32();
     m_session_active = true;
 
-    protocol::RCCarPacket hello_packet{};
-    hello_packet.m_mode = protocol::RCCarPacket::Mode::HELLO;
-    hello_packet.m_session_id = m_session_id;
+    protocol::RCCarPacket arm_packet{};
+    arm_packet.m_mode = protocol::RCCarPacket::Mode::ARM;
+    arm_packet.m_session_id = m_session_id;
 
     bool sent_all_packets = true;
-    for (std::uint8_t idx = 0; idx < SESSION_HELLO_PACKET_COUNT; ++idx)
+    for (std::uint8_t idx = 0; idx < SESSION_ARM_PACKET_COUNT; ++idx)
     {
-        hello_packet.m_session_ms = to_ms_since_boot(get_absolute_time());
-        sent_all_packets = send_packet(hello_packet) && sent_all_packets;
-        sleep_ms(SESSION_HELLO_PACKET_SPACING_MS);
+        arm_packet.m_session_ms = to_ms_since_boot(get_absolute_time());
+        sent_all_packets = send_packet(arm_packet) && sent_all_packets;
+        sleep_ms(SESSION_ARM_PACKET_SPACING_MS);
     }
 
     return sent_all_packets;
@@ -175,16 +203,22 @@ bool CommandSender::send_controller_state(const protocol::CtrlState& p_ctrl_stat
         return false;
     }
 
+    if (!is_connected())
+    {
+        LOG_ERROR("Client is not connected");
+        return false;
+    }
+
     protocol::RCCarPacket command_packet{};
-    command_packet.m_mode = protocol::RCCarPacket::Mode::COMMAND;
+    command_packet.m_mode = protocol::RCCarPacket::Mode::COM;
     command_packet.m_session_id = m_session_id;
     command_packet.m_session_ms = to_ms_since_boot(get_absolute_time());
 
     const std::uint16_t x_axis_be = lwip_htons(p_ctrl_state.m_x_axis);
-    std::memcpy(&command_packet.m_payload[CTRL_STATE_X_AXIS_OFFSET], &x_axis_be, sizeof(x_axis_be));
+    std::memcpy(&command_packet.m_payload[protocol::CTRL_STATE_X_AXIS_OFFSET], &x_axis_be, sizeof(x_axis_be));
 
     const std::uint16_t y_axis_be = lwip_htons(p_ctrl_state.m_y_axis);
-    std::memcpy(&command_packet.m_payload[CTRL_STATE_Y_AXIS_OFFSET], &y_axis_be, sizeof(y_axis_be));
+    std::memcpy(&command_packet.m_payload[protocol::CTRL_STATE_Y_AXIS_OFFSET], &y_axis_be, sizeof(y_axis_be));
 
     return send_packet(command_packet);
 }
@@ -192,24 +226,24 @@ bool CommandSender::send_controller_state(const protocol::CtrlState& p_ctrl_stat
 bool CommandSender::send_packet(const protocol::RCCarPacket &p_packet)
 {
     std::uint8_t payload[protocol::RCCAR_PACKET_SIZE] {};
-    payload[RCCAR_PACKET_MODE_OFFSET] = static_cast<std::uint8_t>(p_packet.m_mode);
+    payload[protocol::RCCAR_PACKET_MODE_OFFSET] = static_cast<std::uint8_t>(p_packet.m_mode);
 
     const std::uint32_t session_id_be = lwip_htonl(p_packet.m_session_id);
-    std::memcpy(&payload[RCCAR_PACKET_SESSION_ID_OFFSET], &session_id_be, sizeof(session_id_be));
+    std::memcpy(&payload[protocol::RCCAR_PACKET_SESSION_ID_OFFSET], &session_id_be, sizeof(session_id_be));
 
     const std::uint32_t session_ms_be = lwip_htonl(p_packet.m_session_ms);
-    std::memcpy(&payload[RCCAR_PACKET_SESSION_MS_OFFSET], &session_ms_be, sizeof(session_ms_be));
+    std::memcpy(&payload[protocol::RCCAR_PACKET_SESSION_MS_OFFSET], &session_ms_be, sizeof(session_ms_be));
 
-    std::memcpy(&payload[RCCAR_PACKET_PAYLOAD_OFFSET], p_packet.m_payload, sizeof(p_packet.m_payload));
+    std::memcpy(&payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET], p_packet.m_payload, sizeof(p_packet.m_payload));
 
     return send_packet_bytes(payload, sizeof(payload));
 }
 
 bool CommandSender::send_packet_bytes(const void* const p_payload, const std::size_t p_length)
 {
-    if (!m_initialized || m_udp_pcb == nullptr)
+    if (!is_connected())
     {
-        LOG_WARNING("Command sender send requested before initialization");
+        LOG_ERROR("Client is not connected");
         return false;
     }
 
@@ -254,9 +288,6 @@ bool CommandSender::send_packet_bytes(const void* const p_payload, const std::si
 
 void CommandSender::cleanup()
 {
-    if (!m_initialized && m_udp_pcb == nullptr && !m_cyw43_initialized)
-        return;
-
     if (m_udp_pcb != nullptr)
     {
         cyw43_arch_lwip_begin();
@@ -268,12 +299,12 @@ void CommandSender::cleanup()
         cyw43_arch_lwip_end();
     }
 
-    if (m_cyw43_initialized)
+    if (m_wifi_initialized)
     {
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
+        pico_common::disable_led();
         cyw43_arch_disable_sta_mode();
         cyw43_arch_deinit();
-        m_cyw43_initialized = false;
+        m_wifi_initialized = false;
     }
 
     m_initialized = false;

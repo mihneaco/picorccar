@@ -18,6 +18,11 @@
 #include "hardware/pwm.h"
 #endif
 
+#if __has_include("pico/cyw43_arch.h")
+#include "pico/cyw43_arch.h"
+#include "pico/time.h"
+#endif
+
 namespace pico_common
 {
 // uint is overkill but its what the pico sdk uses. Using it for convenience.
@@ -145,6 +150,32 @@ inline void init_pwm_output_pin(const Pin p_pin,
 inline void set_pwm_output_level(const Pin p_pin, const std::uint16_t p_level)
 {
     pwm_set_gpio_level(p_pin, p_level);
+}
+#endif
+
+#if __has_include("pico/cyw43_arch.h")
+// On-board status LED is wired to the CYW43 chip, so it is driven through
+// cyw43_arch rather than a regular GPIO. Requires cyw43_arch to be initialized.
+inline void enable_led()
+{
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
+}
+
+inline void disable_led()
+{
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
+}
+
+// Blocking: intended for boot/error status indication only. It will block for (p_count * 2 * p_interval_ms) miliseconds
+inline void blink_led(const std::uint32_t p_count, const std::uint32_t p_interval_ms)
+{
+    for (std::uint32_t i = 0; i < p_count; ++i)
+    {
+        enable_led();
+        sleep_ms(p_interval_ms);
+        disable_led();
+        sleep_ms(p_interval_ms);
+    }
 }
 #endif
 

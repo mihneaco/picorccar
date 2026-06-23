@@ -90,7 +90,7 @@ void CarController::run()
         }
 
         const std::uint32_t packet_age_ms = to_ms_since_boot(get_absolute_time()) - last_packet_ms;
-        if (!command_timed_out && packet_age_ms > (2u * protocol::KEEP_ALIVE_MS))
+        if (!command_timed_out && packet_age_ms > protocol::ACTIVE_TIMING.m_command_timeout_ms)
         {
             stop();
             m_command_receiver.reset_session();
