@@ -21,8 +21,8 @@ constexpr std::uint32_t DEBUG_STARTUP_LOG_DELAY_MS = 3000;
 int main()
 {
     /*
-        @note TB6612FNG has an internal pull-down that holds STBY low at MCU startup/reboot.
-                It's fine to init logging first to benefit from it inside the motor driver code.
+        TB6612FNG has an internal pull-down that holds STBY low at MCU startup/reboot.
+        It's fine to init logging first to benefit from it inside the motor driver code.
     */
     stdio_init_all();
     logger::init(LOGGING_THRESHOLD);

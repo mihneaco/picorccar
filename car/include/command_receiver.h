@@ -48,7 +48,7 @@ private:
     udp_pcb* m_udp_pcb{};
     critical_section_t m_packet_lock{};
     ReceivedCommand m_received_command{};
-    // @details Use only with m_packet_lock locked.
+    /// @note Use only with m_packet_lock locked.
     bool m_has_packet{};
     std::uint32_t m_active_session_id{};
     bool m_session_armed{};

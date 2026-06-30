@@ -9,10 +9,12 @@ namespace
 {
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 
-// The session toggle must be a deliberate gesture: the button has to be held
-// for SESSION_TOGGLE_HOLD_MS while the stick stays near center. This rejects
-// the accidental Z-button actuation that happens when the stick is shoved into
-// a corner.
+/**
+ * @brief The session toggle must be a deliberate gesture: the button has to be held
+ *        for SESSION_TOGGLE_HOLD_MS while the stick stays near center. This rejects
+ *        the accidental Z-button actuation that happens when the stick is shoved into
+ *        a corner.
+ */
 constexpr std::uint32_t SESSION_TOGGLE_HOLD_MS = 500;
 constexpr std::uint16_t SESSION_TOGGLE_CENTER_TOLERANCE = 512;
 }

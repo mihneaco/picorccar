@@ -85,7 +85,7 @@ void CarController::run()
         {
             last_packet_ms = latest_received_command.m_received_ms;
             command_timed_out = false;
-            apply(latest_received_command.m_ctrl_state);
+            set_target(latest_received_command.m_ctrl_state);
             print_packet(latest_received_command);
         }
 
@@ -98,11 +98,15 @@ void CarController::run()
             command_timed_out = true;
         }
 
+        // Advance the duty ramp every tick, independent of packet arrival, so the applied
+        // duty keeps chasing the latest target between commands.
+        m_motor_driver.service();
+
         sleep_ms(MAIN_LOOP_SLEEP_MS);
     }
 }
 
-void CarController::apply(const protocol::CtrlState& p_ctrl_state)
+void CarController::set_target(const protocol::CtrlState& p_ctrl_state)
 {
     const std::int32_t throttle_command = axis_to_signed_command(p_ctrl_state.m_y_axis,
                                                                  m_config.m_throttle_sign);
@@ -122,11 +126,9 @@ void CarController::apply(const protocol::CtrlState& p_ctrl_state)
                    -max_pwm_duty,
                    max_pwm_duty);
 
-    const MotorCommand motor_a = to_motor_command(motor_a_command);
-    const MotorCommand motor_b = to_motor_command(motor_b_command);
-
-    m_motor_driver.set_motor_a(motor_a.m_drive_mode, motor_a.m_pwm_duty);
-    m_motor_driver.set_motor_b(motor_b.m_drive_mode, motor_b.m_pwm_duty);
+    m_motor_driver.set_target(MotorDriver::DriverCommand{
+        MotorDriver::MotorCommand{motor_a_command},
+        MotorDriver::MotorCommand{motor_b_command}});
 }
 
 void CarController::stop()
@@ -159,22 +161,4 @@ std::int32_t CarController::axis_to_signed_command(const std::uint16_t p_adc_val
     return std::clamp(signed_command * p_sign,
                       -static_cast<std::int32_t>(m_config.m_max_pwm_duty),
                       static_cast<std::int32_t>(m_config.m_max_pwm_duty));
-}
-
-CarController::MotorCommand CarController::to_motor_command(const std::int32_t p_signed_command) const
-{
-    MotorCommand motor_command{};
-
-    if (p_signed_command > 0)
-    {
-        motor_command.m_drive_mode = MotorDriver::DriveMode::Forward;
-        motor_command.m_pwm_duty = static_cast<std::uint16_t>(p_signed_command);
-    }
-    else if (p_signed_command < 0)
-    {
-        motor_command.m_drive_mode = MotorDriver::DriveMode::Reverse;
-        motor_command.m_pwm_duty = static_cast<std::uint16_t>(-p_signed_command);
-    }
-
-    return motor_command;
 }

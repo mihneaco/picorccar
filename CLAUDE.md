@@ -8,15 +8,17 @@ Dual RP2350 (Pico 2 W) firmware: one drives two DC motors via TB6612FNG, the oth
 ## Code conventions
 - Member prefix: `m_`, parameter prefix: `p_`, locals: no prefix.
 - Named constants for all pins, timing, and hardware values. No magic numbers.
-- Extract functions only for: reuse, hardware/API boundaries, state-machine transitions, or safety-critical isolation. Not to name a block.
+- Create new functions only for: reuse, hardware/API boundaries, state-machine transitions, or safety-critical isolation. Not to name a block.
 - Use `std::clamp`, `std::optional`, and other C++20 stdlib where appropriate — don't reimplement them.
 - Follow existing style in the file being edited.
-
+- Use doxygen style for comments. Doc Comments bigger than 2 lines should be a javadoc block comment. Comments that have no doc value should stay as // comments. Multiline comments that have no doc value should use normal /* */ block comment syntax
+- 
 ## Changes
 - Make the smallest correct change. Don't refactor unrelated code.
 - Don't add dependencies unless asked.
 - Don't change: pin assignments, PWM config, protocol wire format, task timing, or boot flow — unless explicitly required.
 - Flag obvious bugs; don't silently work around them.
+- Work with existing abstractions if possible. Don't write new ones when there are already available ones that can be adjusted.
 
 ## Build
 - Default: `dev` CMake preset. Check release only if affected.

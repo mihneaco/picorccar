@@ -5,18 +5,22 @@
 
 namespace protocol
 {
-/*
-    The controller streams the latest joystick state at least every m_command_interval_ms (sooner on change).
-    The car stops and de-arms the session if no valid command arrives within m_command_timeout_ms.
-    The timeout must span several intervals so normal UDP loss does not trip a false failsafe.
-*/
+/**
+ * @brief Timing parameters shared by the controller and the car.
+ *
+ * @details The controller streams the latest joystick state at least every
+ *          m_command_interval_ms (sooner on change). The car stops and de-arms
+ *          the session if no valid command arrives within m_command_timeout_ms.
+ *          The timeout must span several intervals so normal UDP loss does not
+ *          trip a false failsafe.
+ */
 struct Timing
 {
-    std::uint32_t m_command_interval_ms; // controller steady-state send floor
-    std::uint32_t m_command_timeout_ms;  // car failsafe (runaway) window
+    std::uint32_t m_command_interval_ms; ///< Controller steady-state send floor.
+    std::uint32_t m_command_timeout_ms;  ///< Car failsafe (runaway) window.
 };
 
-// Profiles trade runaway-stop latency against tolerance to consecutive packet loss.
+/// Profiles trade runaway-stop latency against tolerance to consecutive packet loss.
 inline constexpr Timing TimingBalanced { 50, 250};
 inline constexpr Timing TimingRelaxed  {100, 400};
 inline constexpr Timing TimingSnappy   { 20, 150};
@@ -24,7 +28,7 @@ inline constexpr Timing ACTIVE_TIMING = TimingBalanced;
 
 struct CtrlState
 {
-    // Joystick ADC readings can jitter a few counts even when the stick is steady.
+    /// Joystick ADC readings can jitter a few counts even when the stick is steady.
     static constexpr std::uint16_t ADC_READ_TOLERANCE = 5;
 
     std::uint16_t m_x_axis {};

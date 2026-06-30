@@ -9,7 +9,11 @@
 
 namespace logger
 {
-// Call after stdio_init_all(); uLog uses shared static storage, so avoid logging from IRQ paths.
+/**
+ * @brief uLog sink that writes to pico stdio.
+ * @note Call after stdio_init_all(); uLog uses shared static storage, so avoid
+ *       logging from IRQ paths.
+ */
 inline void pico_stdio_sink(const ulog_level_t severity, char* const message)
 {
 #ifdef ULOG_ENABLED
@@ -31,7 +35,7 @@ inline ulog_err_t init(const ulog_level_t threshold = ULOG_INFO_LEVEL)
 #endif
 }
 
-// LOG_INFO() and friends with no message use this overload as a function-entry log.
+/// @brief Function-entry log overload used by LOG_INFO() and friends with no message.
 inline void log(const ulog_level_t severity, const char* const function)
 {
 #ifdef ULOG_ENABLED
@@ -42,7 +46,7 @@ inline void log(const ulog_level_t severity, const char* const function)
 #endif
 }
 
-// LOG_INFO("...", args...) and friends use this overload for function-prefixed messages.
+/// @brief Function-prefixed message overload used by LOG_INFO("...", args...) and friends.
 inline void log(const ulog_level_t severity, const char* const function, const char* const format, ...)
 {
 #ifdef ULOG_ENABLED
