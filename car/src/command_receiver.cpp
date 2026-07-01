@@ -162,11 +162,27 @@ void CommandReceiver::receive_callback(pbuf* p_packet)
 
     if (mode == protocol::RCCarPacket::Mode::ARM)
     {
+        const auto arm_flag = static_cast<protocol::RCCarPacket::ArmFlag>(
+            payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::ARM_FLAG_OFFSET]);
+
         critical_section_enter_blocking(&m_packet_lock);
         {
-            m_active_session_id = session_id;
-            m_session_armed = true;
-            m_has_packet = false;
+            if (arm_flag == protocol::RCCarPacket::ArmFlag::Arm)
+            {
+                m_active_session_id = session_id;
+                m_session_armed = true;
+                m_has_packet = false;
+            }
+            // Only the controller that owns the active session may tear it down, so a stale
+            // disarm from a previous session cannot drop a newer one. Motors are left to the
+            // main-loop command-timeout failsafe (the controller stops streaming after disarm).
+            else if (arm_flag == protocol::RCCarPacket::ArmFlag::Disarm
+                     && session_id == m_active_session_id)
+            {
+                m_active_session_id = 0;
+                m_session_armed = false;
+                m_has_packet = false;
+            }
         }
         critical_section_exit(&m_packet_lock);
         return;
@@ -224,17 +240,6 @@ bool CommandReceiver::get_packet(ReceivedCommand& p_received_command)
     critical_section_exit(&m_packet_lock);
 
     return has_packet;
-}
-
-void CommandReceiver::reset_session()
-{
-    critical_section_enter_blocking(&m_packet_lock);
-    {
-        m_has_packet = false;
-        m_active_session_id = 0;
-        m_session_armed = false;
-    }
-    critical_section_exit(&m_packet_lock);
 }
 
 void CommandReceiver::cleanup()

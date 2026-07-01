@@ -108,10 +108,11 @@ void RemoteController::handle_joystick_button(const JoystickController::Sample& 
     {
         if (m_session_started)
         {
-            // Relinquish control by going silent; the car's command timeout failsafe
-            // then stops and de-arms it.
+            // Relinquish control: explicitly disarm so the car drops the session in sync with
+            // us, then stop streaming so its command-timeout failsafe stops the motors.
+            m_command_sender.end_session();
             m_session_started = false;
-            LOG_INFO("Session relinquished; car will failsafe-stop");
+            LOG_INFO("Session relinquished; car disarmed");
         }
         else
         {

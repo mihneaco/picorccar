@@ -32,7 +32,6 @@ public:
 
     bool init();
     bool get_packet(ReceivedCommand& p_received_command);
-    void reset_session();
 
 private:
     bool init_wifi();

@@ -77,25 +77,24 @@ void CarController::run()
     LOG_INFO("Starting MAIN loop");
     CommandReceiver::ReceivedCommand latest_received_command{};
     std::uint32_t last_packet_ms{to_ms_since_boot(get_absolute_time())};
-    bool command_timed_out{false};
+    bool motors_stopped{false};
     while (true)
     {
         const bool has_packet = m_command_receiver.get_packet(latest_received_command);
         if (has_packet)
         {
             last_packet_ms = latest_received_command.m_received_ms;
-            command_timed_out = false;
+            motors_stopped = false;
             set_target(latest_received_command.m_ctrl_state);
             print_packet(latest_received_command);
         }
 
         const std::uint32_t packet_age_ms = to_ms_since_boot(get_absolute_time()) - last_packet_ms;
-        if (!command_timed_out && packet_age_ms > protocol::ACTIVE_TIMING.m_command_timeout_ms)
+        if (!motors_stopped && packet_age_ms > protocol::ACTIVE_TIMING.m_command_timeout_ms)
         {
             stop();
-            LOG_INFO("Session timeout hit. Droping session");
-            m_command_receiver.reset_session();
-            command_timed_out = true;
+            LOG_INFO("Command timeout: motors stopped");
+            motors_stopped = true;
         }
 
         // Advance the duty ramp every tick, independent of packet arrival, so the applied

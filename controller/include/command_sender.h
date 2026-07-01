@@ -28,10 +28,12 @@ public:
     bool connect();
     bool is_connected();
     bool start_new_session();
+    bool end_session();
     bool send_controller_state(const protocol::CtrlState& p_ctrl_state);
 
 private:
     bool init_wifi();
+    bool send_session_control(protocol::RCCarPacket::ArmFlag p_arm_flag);
     bool send_packet(const protocol::RCCarPacket& p_packet);
     bool send_packet_bytes(const void* p_payload, std::size_t p_length);
     void cleanup();

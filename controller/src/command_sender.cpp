@@ -180,9 +180,35 @@ bool CommandSender::start_new_session()
     m_session_id = get_rand_32();
     m_session_active = true;
 
+    return send_session_control(protocol::RCCarPacket::ArmFlag::Arm);
+}
+
+bool CommandSender::end_session()
+{
+    LOG_INFO();
+
+    if (!m_initialized)
+    {
+        LOG_WARNING("Command sender session end requested before initialization");
+        return false;
+    }
+
+    if (!m_session_active)
+        return true;
+
+    m_session_active = false;
+
+    return send_session_control(protocol::RCCarPacket::ArmFlag::Disarm);
+}
+
+bool CommandSender::send_session_control(const protocol::RCCarPacket::ArmFlag p_arm_flag)
+{
+    // Repeat the control packet a few times: it is a one-shot state change on a lossy link, so
+    // unlike the streamed COM packets there is no next packet to cover a drop.
     protocol::RCCarPacket arm_packet{};
     arm_packet.m_mode = protocol::RCCarPacket::Mode::ARM;
     arm_packet.m_session_id = m_session_id;
+    arm_packet.m_payload[protocol::ARM_FLAG_OFFSET] = static_cast<std::uint8_t>(p_arm_flag);
 
     bool sent_all_packets = true;
     for (std::uint8_t idx = 0; idx < SESSION_ARM_PACKET_COUNT; ++idx)
