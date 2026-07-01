@@ -4,67 +4,23 @@
 #include "pico/stdlib.h"
 
 #include <algorithm>
-#include <cstdlib>
 
-namespace
-{
-constexpr const char* drive_mode_name(const MotorDriver::DriveMode p_drive_mode)
-{
-    switch (p_drive_mode)
-    {
-    case MotorDriver::DriveMode::Stop:
-        return "Stop";
-    case MotorDriver::DriveMode::Forward:
-        return "Forward";
-    case MotorDriver::DriveMode::Reverse:
-        return "Reverse";
-    case MotorDriver::DriveMode::Brake:
-        return "Brake";
-    default:
-        return "Unknown";
-    }
-}
-}
 
-MotorDriver::MotorCommand::MotorCommand(const std::int32_t p_value)
+MotorDriver::MotorSetpoint::MotorSetpoint(const std::int16_t p_value)
     : m_value(std::clamp(p_value,
-                         -static_cast<std::int32_t>(MAX_PWM_DUTY),
-                         static_cast<std::int32_t>(MAX_PWM_DUTY)))
+                         static_cast<std::int16_t>(-MAX_PWM_DUTY),
+                         static_cast<std::int16_t>(MAX_PWM_DUTY)))
 {
+    // Clamping keeps the hardware safe, but an out-of-range setpoint means a caller computed
+    // a duty outside [-MAX_PWM_DUTY, MAX_PWM_DUTY]
+    if (m_value != p_value)
+        LOG_WARNING("clamped %d -> %d", static_cast<int>(p_value), static_cast<int>(m_value));
 }
 
-MotorDriver::DriveMode MotorDriver::MotorCommand::drive_mode() const
-{
-    if (m_value > 0)
-        return DriveMode::Forward;
-    if (m_value < 0)
-        return DriveMode::Reverse;
-    return DriveMode::Stop;
-}
-
-std::uint16_t MotorDriver::MotorCommand::duty() const
-{
-    const std::int32_t magnitude = std::abs(m_value);
-    return static_cast<std::uint16_t>(std::min(magnitude, static_cast<std::int32_t>(PWM_WRAP)));
-}
-
-void MotorDriver::MotorState::slew_toward_target()
-{
-    const std::int32_t current = m_current.value();
-    const std::int32_t target = m_target.value();
-    const std::int32_t next = target > current
-                            ? std::min(current + PWM_SLEW_STEP, target)
-                            : std::max(current - PWM_SLEW_STEP, target);
-
-    // Force a zero crossing onto its own step so direction never flips under load: the motor
-    // passes through Stop (and the reversal dead-time in drive_motor) before reversing.
-    if ((current > 0 && next < 0) || (current < 0 && next > 0))
-        m_current = MotorCommand{0};
-    else
-        m_current = MotorCommand{next};
-}
-
-MotorDriver::MotorDriver(const pinout::DriverPins p_pins) : m_pins(p_pins)
+MotorDriver::MotorDriver(const pinout::DriverPins p_pins)
+    : m_motor_a{"A", p_pins.m_motor_a, {}},
+      m_motor_b{"B", p_pins.m_motor_b, {}},
+      m_standby(p_pins.m_standby)
 {
     LOG_DEBUG();
 }
@@ -73,44 +29,44 @@ void MotorDriver::init()
 {
     LOG_DEBUG();
 
-    pico_common::init_gpio_pin(m_pins.m_motor_a.m_in1, pico_common::GpioDirection::Output);
-    pico_common::init_gpio_pin(m_pins.m_motor_a.m_in2, pico_common::GpioDirection::Output);
-    pico_common::init_gpio_pin(m_pins.m_motor_b.m_in1, pico_common::GpioDirection::Output);
-    pico_common::init_gpio_pin(m_pins.m_motor_b.m_in2, pico_common::GpioDirection::Output);
-    pico_common::init_gpio_pin(m_pins.m_standby, pico_common::GpioDirection::Output);
+    pico_common::init_gpio_pin(m_motor_a.m_pins.m_in1, pico_common::GpioDirection::Output);
+    pico_common::init_gpio_pin(m_motor_a.m_pins.m_in2, pico_common::GpioDirection::Output);
+    pico_common::init_gpio_pin(m_motor_b.m_pins.m_in1, pico_common::GpioDirection::Output);
+    pico_common::init_gpio_pin(m_motor_b.m_pins.m_in2, pico_common::GpioDirection::Output);
+    pico_common::init_gpio_pin(m_standby, pico_common::GpioDirection::Output);
 
-    pico_common::init_pwm_output_pin(m_pins.m_motor_a.m_pwm, PWM_TARGET_HZ, PWM_WRAP);
-    pico_common::init_pwm_output_pin(m_pins.m_motor_b.m_pwm, PWM_TARGET_HZ, PWM_WRAP);
+    pico_common::init_pwm_output_pin(m_motor_a.m_pins.m_pwm, PWM_TARGET_HZ, PWM_WRAP);
+    pico_common::init_pwm_output_pin(m_motor_b.m_pins.m_pwm, PWM_TARGET_HZ, PWM_WRAP);
 
     stop_all();
     set_standby(true);
 }
 
-void MotorDriver::set_target(const DriverCommand p_command)
+void MotorDriver::set_target(const std::int16_t p_motor_a, const std::int16_t p_motor_b)
 {
-    // MotorCommand clamps to +/-MAX_PWM_DUTY on construction, so the target is already safe.
-    m_motor_state_a.m_target = p_command.m_motor_a;
-    m_motor_state_b.m_target = p_command.m_motor_b;
+    // MotorSetpoint clamps to +/-MAX_PWM_DUTY on construction, so the target is already safe.
+    m_motor_a.m_state.set_target(p_motor_a);
+    m_motor_b.m_state.set_target(p_motor_b);
 }
 
 void MotorDriver::service()
 {
-    service_motor(m_pins.m_motor_a, m_motor_state_a);
-    service_motor(m_pins.m_motor_b, m_motor_state_b);
+    service_motor(m_motor_a);
+    service_motor(m_motor_b);
 }
 
 void MotorDriver::stop_all()
 {
     LOG_DEBUG();
 
-    const DriveMode previous_mode_a = m_motor_state_a.m_current.drive_mode();
-    const DriveMode previous_mode_b = m_motor_state_b.m_current.drive_mode();
+    // Failsafe path: zero both the applied output and the target so the next service() tick
+    // cannot ramp back up toward a stale target. reset() keeps the prior applied value as
+    // previous() so drive_motor still sees the mode it is transitioning away from.
+    m_motor_a.m_state.reset();
+    m_motor_b.m_state.reset();
 
-    m_motor_state_a = MotorState{};
-    m_motor_state_b = MotorState{};
-
-    drive_motor(m_pins.m_motor_a, previous_mode_a, DriveMode::Stop, 0);
-    drive_motor(m_pins.m_motor_b, previous_mode_b, DriveMode::Stop, 0);
+    drive_motor(m_motor_a);
+    drive_motor(m_motor_b);
 }
 
 void MotorDriver::set_standby(const bool p_enabled)
@@ -120,50 +76,58 @@ void MotorDriver::set_standby(const bool p_enabled)
     if (!p_enabled)
         stop_all();
 
-    pico_common::write_gpio_output(m_pins.m_standby, p_enabled);
+    pico_common::write_gpio_output(m_standby, p_enabled);
 }
 
-void MotorDriver::service_motor(const pinout::MotorPins& p_pins, MotorState& p_motor)
+void MotorDriver::service_motor(Motor& p_motor)
 {
-    const MotorCommand previous = p_motor.m_current;
-    p_motor.slew_toward_target();
+    MotorState& state = p_motor.m_state;
+
+    // Advance the applied output one slew step toward the target, capped at PWM_SLEW_STEP.
+    const std::int32_t current_value = state.current().value();
+    const std::int32_t target_value = state.target().value();
+    const std::int32_t next = target_value > current_value
+                            ? std::min(current_value + PWM_SLEW_STEP, target_value)
+                            : std::max(current_value - PWM_SLEW_STEP, target_value);
+
+    // Force a zero crossing onto its own step so direction never flips under load: the motor
+    // passes through Stop (and the reversal dead-time in drive_motor) before reversing.
+    const bool crosses_zero = (current_value > 0 && next < 0) || (current_value < 0 && next > 0);
+    const std::int16_t next_value = crosses_zero ? 0 : static_cast<std::int16_t>(next);
 
     // Skip the hardware write when nothing changed so a steady command does not re-issue
     // identical GPIO/PWM writes every tick.
-    if (p_motor.m_current.value() == previous.value())
+    if (next_value == current_value)
         return;
 
-    drive_motor(p_pins,
-                previous.drive_mode(),
-                p_motor.m_current.drive_mode(),
-                p_motor.m_current.duty());
+    // set_current shifts the prior applied value into previous() so drive_motor can guard a
+    // direction reversal.
+    state.set_current(next_value);
+    drive_motor(p_motor);
 }
 
-bool MotorDriver::is_drive_mode_reversal(const DriveMode p_current, const DriveMode p_next)
+void MotorDriver::drive_motor(const Motor& p_motor)
 {
-    return (p_current == DriveMode::Forward && p_next == DriveMode::Reverse) ||
-           (p_current == DriveMode::Reverse && p_next == DriveMode::Forward);
-}
+    const pinout::MotorPins& pins = p_motor.m_pins;
+    const DriveMode previous_mode = p_motor.m_state.previous().drive_mode();
+    const DriveMode drive_mode = p_motor.m_state.current().drive_mode();
+    const std::uint16_t pwm_duty = p_motor.m_state.current().duty();
 
-void MotorDriver::drive_motor(const pinout::MotorPins& p_pins,
-                              const DriveMode p_previous_mode,
-                              const DriveMode p_drive_mode,
-                              const std::uint16_t p_pwm_duty)
-{
-    LOG_DEBUG("pins=%u/%u/%u mode=%s->%s duty=%u",
-              static_cast<uint>(p_pins.m_in1),
-              static_cast<uint>(p_pins.m_in2),
-              static_cast<uint>(p_pins.m_pwm),
-              drive_mode_name(p_previous_mode),
-              drive_mode_name(p_drive_mode),
-              static_cast<uint>(p_pwm_duty));
+    LOG_DEBUG("motor=%s mode=%s->%s duty=%u",
+              p_motor.m_name,
+              drive_mode_name(previous_mode),
+              drive_mode_name(drive_mode),
+              static_cast<uint>(pwm_duty));
 
     // Drop PWM before changing direction to avoid slamming directly through a reversal.
     // With slew limiting a reversal already passes through Stop, so the dead-time is a guard.
-    if (p_drive_mode != p_previous_mode)
+    if (drive_mode != previous_mode)
     {
-        pico_common::set_pwm_output_level(p_pins.m_pwm, 0);
-        if (is_drive_mode_reversal(p_previous_mode, p_drive_mode))
+        pico_common::set_pwm_output_level(pins.m_pwm, 0);
+        if ((previous_mode == DriveMode::Forward
+             && drive_mode == DriveMode::Reverse)
+            || (previous_mode == DriveMode::Reverse
+                && drive_mode == DriveMode::Forward))
             sleep_us(DIRECTION_CHANGE_DEADTIME_US);
     }
 
@@ -176,37 +140,29 @@ void MotorDriver::drive_motor(const pinout::MotorPins& p_pins,
         +---------+-----+-----+-----+
         | Forward | H   | L   | PWM |
         | Reverse | L   | H   | PWM |
-        | Brake   | H   | H   | H/L |
         | Stop    | L   | L   | H   |
         +---------+-----+-----+-----+
     */
-    switch (p_drive_mode)
+    switch (drive_mode)
     {
     case DriveMode::Forward:
-        pico_common::write_gpio_output(p_pins.m_in1, true);
-        pico_common::write_gpio_output(p_pins.m_in2, false);
-        pico_common::set_pwm_output_level(p_pins.m_pwm, p_pwm_duty);
+        pico_common::write_gpio_output(pins.m_in1, true);
+        pico_common::write_gpio_output(pins.m_in2, false);
+        pico_common::set_pwm_output_level(pins.m_pwm, pwm_duty);
         break;
 
     case DriveMode::Reverse:
-        pico_common::write_gpio_output(p_pins.m_in1, false);
-        pico_common::write_gpio_output(p_pins.m_in2, true);
-        pico_common::set_pwm_output_level(p_pins.m_pwm, p_pwm_duty);
-        break;
-
-    case DriveMode::Brake:
-        pico_common::write_gpio_output(p_pins.m_in1, true);
-        pico_common::write_gpio_output(p_pins.m_in2, true);
-        // Outputs are driven by IN pins; PWM high keeps the brake engaged.
-        pico_common::set_pwm_output_level(p_pins.m_pwm, PWM_FULL_DUTY);
+        pico_common::write_gpio_output(pins.m_in1, false);
+        pico_common::write_gpio_output(pins.m_in2, true);
+        pico_common::set_pwm_output_level(pins.m_pwm, pwm_duty);
         break;
 
     case DriveMode::Stop:
     default:
-        pico_common::write_gpio_output(p_pins.m_in1, false);
-        pico_common::write_gpio_output(p_pins.m_in2, false);
+        pico_common::write_gpio_output(pins.m_in1, false);
+        pico_common::write_gpio_output(pins.m_in2, false);
         // Outputs are Hi-Z (coast) regardless of PWM; level is don't-care, held high.
-        pico_common::set_pwm_output_level(p_pins.m_pwm, PWM_FULL_DUTY);
+        pico_common::set_pwm_output_level(pins.m_pwm, PWM_FULL_DUTY);
         break;
     }
 }

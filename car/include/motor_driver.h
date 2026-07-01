@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstdlib>
 
 #include "pinout.h"
 
@@ -35,40 +36,6 @@ class MotorDriver
 public:
     static constexpr std::uint16_t MAX_PWM_DUTY = 1000;
 
-    enum class DriveMode
-    {
-        Stop,
-        Forward,
-        Reverse,
-        Brake
-    };
-
-    /**
-     * @brief Per-motor signed duty: the sign picks direction, the magnitude is PWM duty.
-     * @details Clamped to [-MAX_PWM_DUTY, MAX_PWM_DUTY] on construction, so holding one
-     *          guarantees a value the hardware can apply. A default-constructed command is
-     *          0 (Stop), the safe default for failsafe/standby state.
-     */
-    class MotorCommand
-    {
-    public:
-        MotorCommand() = default;
-        explicit MotorCommand(std::int32_t p_value);
-        std::int32_t value() const { return m_value; }
-        DriveMode drive_mode() const;
-        std::uint16_t duty() const;
-
-    private:
-        std::int32_t m_value = 0;
-    };
-
-    /// @brief One MotorCommand per motor: the command handed to the driver via set_target().
-    struct DriverCommand
-    {
-        MotorCommand m_motor_a;
-        MotorCommand m_motor_b;
-    };
-
     explicit MotorDriver(const pinout::DriverPins p_pins);
     MotorDriver(const MotorDriver& p_other) = delete;
     MotorDriver(MotorDriver&& p_other) = delete;
@@ -82,7 +49,7 @@ public:
      * @details The applied output is not changed here; it ramps toward these targets
      *          one step per service() call.
      */
-    void set_target(DriverCommand p_command);
+    void set_target(std::int16_t p_motor_a, std::int16_t p_motor_b);
     /**
      * @brief Advance both motors one slew step toward their targets and drive the hardware.
      * @note Expected to be called once per control tick.
@@ -96,22 +63,97 @@ public:
     void stop_all();
 
 private:
-    /**
-     * @brief Target and currently-applied command for one motor.
-     * @details Sign encodes direction, so a reversal is just the value crossing zero
-     *          and the ramp handles it without extra state.
-     */
-    struct MotorState
+    // Hardware output vocabulary for a single motor, shared by the drive path.
+    enum class DriveMode
     {
-        MotorCommand m_target;
-        MotorCommand m_current;
+        Stop,
+        Forward,
+        Reverse
+    };
+    static constexpr const char *drive_mode_name(const DriveMode p_drive_mode)
+    {
+        switch (p_drive_mode)
+        {
+        case DriveMode::Stop:
+            return "Stop";
+        case DriveMode::Forward:
+            return "Forward";
+        case DriveMode::Reverse:
+            return "Reverse";
+        default:
+            return "Unknown";
+        }
+    }
 
-        /**
-         * @brief Advance m_current one slew step toward m_target, capped at p_max_step.
-         * @details A sign change lands on a Stop step (m_current = 0) instead of slamming
-         *          across, so direction never flips under load.
-         */
-        void slew_toward_target();
+    /**
+     * @brief Signed motor setpoint: the sign picks direction, the magnitude is PWM duty.
+     * @details Clamped to [-MAX_PWM_DUTY, MAX_PWM_DUTY] on construction, so holding one
+     *          guarantees a value the hardware can apply. A zero value (MotorSetpoint{0}) is
+     *          Stop, the safe default for failsafe/standby state.
+     * @warning An out-of-range input is clamped rather than rejected, and construction emits
+     *          a LOG_WARNING when it happens -- that log should be treated as a caller bug.
+     *          Because it can log, do not construct a MotorSetpoint from an IRQ/timer path.
+     */
+    class MotorSetpoint
+    {
+    public:
+        MotorSetpoint() = delete;
+        explicit MotorSetpoint(const std::int16_t p_value);
+        std::int16_t value() const { return m_value; }
+        DriveMode drive_mode() const
+        {
+            return  m_value > 0 ? DriveMode::Forward
+                  : m_value < 0 ? DriveMode::Reverse
+                  : DriveMode::Stop;
+        }
+        std::uint16_t duty() const { return std::abs(m_value); }
+
+    private:
+        std::int16_t m_value{};
+    };
+
+    /**
+     * @brief Per-motor state: the applied output (m_current), the value it was driven at
+     *        before this tick (m_previous), and where it is ramping to (m_target).
+     * @details service() advances m_current one slew step toward m_target each tick.
+     *          set_current() shifts the prior applied value into m_previous so the drive path
+     *          can see the mode it is transitioning away from without a separate argument.
+     *          Fields are private so m_current can never be moved without shifting m_previous.
+     */
+    class MotorState
+    {
+    public:
+        const MotorSetpoint& current() const { return m_current; }
+        const MotorSetpoint& previous() const { return m_previous; }
+        const MotorSetpoint& target() const { return m_target; }
+
+        void set_target(const std::int16_t p_value) { m_target = MotorSetpoint{p_value}; }
+        // Shift the applied output, keeping the prior value in m_previous for the drive
+        // path's dead-time guard.
+        void set_current(const std::int16_t p_value)
+        {
+            m_previous = m_current;
+            m_current = MotorSetpoint{p_value};
+        }
+        // Zero both output and target: the safe state for failsafe / standby.
+        void reset()
+        {
+            m_previous = m_current;
+            m_current = MotorSetpoint{0};
+            m_target = MotorSetpoint{0};
+        }
+
+    private:
+        MotorSetpoint m_current{0};
+        MotorSetpoint m_previous{0};
+        MotorSetpoint m_target{0};
+    };
+
+    struct Motor
+    {
+        const char* const m_name;
+        const pinout::MotorPins m_pins;
+        MotorState m_state;
     };
 
     static constexpr std::uint16_t PWM_WRAP = MAX_PWM_DUTY;
@@ -129,15 +171,10 @@ private:
      */
     static constexpr std::int32_t PWM_SLEW_STEP = 100;
 
-    static bool is_drive_mode_reversal(DriveMode p_current, DriveMode p_next);
+    void service_motor(Motor& p_motor);
+    void drive_motor(const Motor& p_motor);
 
-    void service_motor(const pinout::MotorPins& p_pins, MotorState& p_motor);
-    void drive_motor(const pinout::MotorPins& p_pins,
-                     DriveMode p_previous_mode,
-                     DriveMode p_drive_mode,
-                     std::uint16_t p_pwm_duty);
-
-    const pinout::DriverPins m_pins;
-    MotorState m_motor_state_a;
-    MotorState m_motor_state_b;
+    Motor m_motor_a;
+    Motor m_motor_b;
+    const pinout::Pin m_standby;
 };

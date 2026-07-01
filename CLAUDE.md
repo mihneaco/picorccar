@@ -15,6 +15,7 @@ Dual RP2350 (Pico 2 W) firmware: one drives two DC motors via TB6612FNG, the oth
 - 
 ## Changes
 - Make the smallest correct change. Don't refactor unrelated code.
+- Challenge me when I suggest something that doesn't make sense. Only apply when I insist.
 - Don't add dependencies unless asked.
 - Don't change: pin assignments, PWM config, protocol wire format, task timing, or boot flow — unless explicitly required.
 - Flag obvious bugs; don't silently work around them.
@@ -22,7 +23,6 @@ Dual RP2350 (Pico 2 W) firmware: one drives two DC motors via TB6612FNG, the oth
 
 ## Build
 - Default: `dev` CMake preset. Check release only if affected.
-- Validation order: affected target → lint/format → unit tests → full build.
 - If hardware logic changed, say bench validation is needed.
 
 ## Project specific

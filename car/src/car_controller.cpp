@@ -126,9 +126,7 @@ void CarController::set_target(const protocol::CtrlState& p_ctrl_state)
                    -max_pwm_duty,
                    max_pwm_duty);
 
-    m_motor_driver.set_target(MotorDriver::DriverCommand{
-        MotorDriver::MotorCommand{motor_a_command},
-        MotorDriver::MotorCommand{motor_b_command}});
+    m_motor_driver.set_target(motor_a_command, motor_b_command);
 }
 
 void CarController::stop()
