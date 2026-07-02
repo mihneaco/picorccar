@@ -33,6 +33,12 @@ set(PICORCCAR_COMMON_COMPILE_DEFINITIONS
     ULOG_ENABLED
     ULOG_MAX_MESSAGE_LENGTH=1024
     LOGGING_THRESHOLD=${LOGGING_THRESHOLD}
+    # Cap how long a stalled USB serial host can block a firmware's main loop.
+    # SDK default is 500000us/write, which snowballs into multi-second core
+    # stalls when the monitor stops draining. 1ms bounds worst-case loop jitter
+    # and only drops log output under sustained backpressure. Applies to both
+    # firmwares since both are stdio-USB-only.
+    PICO_STDIO_USB_STDOUT_TIMEOUT_US=1000
 )
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND PICORCCAR_COMMON_COMPILE_DEFINITIONS

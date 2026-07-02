@@ -34,7 +34,7 @@ int main()
 
     CommandReceiver command_receiver(ACCESS_POINT_SSID, ACCESS_POINT_PSK, UDP_SERVER_PORT);
     MotorDriver motor_driver(pinout::MOTOR_DRIVER_PINS);
-    CarController car_controller(command_receiver, motor_driver, CarController::ConfigHalfDuty);
+    CarController car_controller(command_receiver, motor_driver, CarController::ACTIVE_CONFIG);
 
     if (!car_controller.init())
     {

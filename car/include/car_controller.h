@@ -33,7 +33,6 @@ public:
         .m_motor_b_sign  = 1,
         .m_max_pwm_duty  = MotorDriver::MAX_PWM_DUTY,
     };
-
     /**
      * @brief Same as ConfigDefault but caps commanded duty at half the driver max
      *        for controllability and to limit peak current draw / brownout risk.
@@ -49,9 +48,10 @@ public:
         .m_motor_b_sign  = 1,
         .m_max_pwm_duty  = MotorDriver::MAX_PWM_DUTY / 2,
     };
+    static constexpr Config ACTIVE_CONFIG = ConfigDefault;
 
-    CarController(CommandReceiver& p_command_receiver,
-                  MotorDriver& p_motor_driver,
+    CarController(CommandReceiver & p_command_receiver,
+                  MotorDriver &p_motor_driver,
                   Config p_config);
 
     bool init();
