@@ -32,11 +32,14 @@ public:
 
     bool init();
     bool get_packet(ReceivedCommand& p_received_command);
+    bool restart_wifi();
 
 private:
     bool init_wifi();
     bool init_server();
     void receive_callback(pbuf* p_packet);
+    void handle_arm_packet(const std::uint8_t* p_payload, std::uint32_t p_session_id);
+    void handle_com_packet(const std::uint8_t* p_payload, std::uint32_t p_session_id);
     void cleanup();
 
     const char* m_access_point_ssid;

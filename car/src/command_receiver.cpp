@@ -65,6 +65,11 @@ bool CommandReceiver::init_wifi()
     }
     pico_common::enable_led();
 
+#ifdef PICORCCAR_DEBUG
+    // Trace every join/auth/deauth/link event the cyw43 sees
+    cyw43_state.trace_flags |= CYW43_TRACE_ASYNC_EV;
+#endif
+
     // Enable AP mode
     LOG_INFO("enabling AP mode");
     cyw43_arch_enable_ap_mode(m_access_point_ssid,
@@ -73,6 +78,32 @@ bool CommandReceiver::init_wifi()
 
     m_wifi_initialized = true;
     return true;
+}
+
+bool CommandReceiver::restart_wifi()
+{
+    LOG_WARNING("Restarting Wi-Fi stack");
+
+    if (m_udp_pcb != nullptr)
+    {
+        cyw43_arch_lwip_begin();
+        {
+            udp_recv(m_udp_pcb, nullptr, nullptr);
+            udp_remove(m_udp_pcb);
+            m_udp_pcb = nullptr;
+        }
+        cyw43_arch_lwip_end();
+    }
+
+    if (m_wifi_initialized)
+    {
+        pico_common::disable_led();
+        cyw43_arch_disable_ap_mode();
+        cyw43_arch_deinit();
+        m_wifi_initialized = false;
+    }
+
+    return init_wifi() && init_server();
 }
 
 bool CommandReceiver::init_server()
@@ -155,60 +186,68 @@ void CommandReceiver::receive_callback(pbuf* p_packet)
     }
 
     const auto mode = static_cast<protocol::RCCarPacket::Mode>(payload[protocol::RCCAR_PACKET_MODE_OFFSET]);
-
     std::uint32_t session_id_be{};
     std::memcpy(&session_id_be, &payload[protocol::RCCAR_PACKET_SESSION_ID_OFFSET], sizeof(session_id_be));
     const std::uint32_t session_id = lwip_ntohl(session_id_be);
 
-    if (mode == protocol::RCCarPacket::Mode::ARM)
+    switch (mode)
     {
-        const auto arm_flag = static_cast<protocol::RCCarPacket::ArmFlag>(
-            payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::ARM_FLAG_OFFSET]);
+    case protocol::RCCarPacket::Mode::ARM:
+        handle_arm_packet(payload, session_id);
+        break;
 
-        critical_section_enter_blocking(&m_packet_lock);
-        {
-            if (arm_flag == protocol::RCCarPacket::ArmFlag::Arm)
-            {
-                m_active_session_id = session_id;
-                m_session_armed = true;
-                m_has_packet = false;
-            }
-            // Only the controller that owns the active session may tear it down, so a stale
-            // disarm from a previous session cannot drop a newer one. Motors are left to the
-            // main-loop command-timeout failsafe (the controller stops streaming after disarm).
-            else if (arm_flag == protocol::RCCarPacket::ArmFlag::Disarm
-                     && session_id == m_active_session_id)
-            {
-                m_active_session_id = 0;
-                m_session_armed = false;
-                m_has_packet = false;
-            }
-        }
-        critical_section_exit(&m_packet_lock);
-        return;
-    }
+    case protocol::RCCarPacket::Mode::COM:
+        handle_com_packet(payload, session_id);
+        break;
 
-    if (mode != protocol::RCCarPacket::Mode::COM)
-    {
-        LOG_DEBUG("Ignoring non-command packet mode=%u",
-                  static_cast<unsigned>(mode));
-        return;
+    default:
+        break;
     }
+}
+
+void CommandReceiver::handle_arm_packet(const std::uint8_t* p_payload, const std::uint32_t p_session_id)
+{
+    const auto arm_flag = static_cast<protocol::RCCarPacket::ArmFlag>(
+        p_payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::ARM_FLAG_OFFSET]);
 
     critical_section_enter_blocking(&m_packet_lock);
-    const bool accept_command = m_session_armed && session_id == m_active_session_id;
+    {
+        if (arm_flag == protocol::RCCarPacket::ArmFlag::Arm)
+        {
+            m_active_session_id = p_session_id;
+            m_session_armed = true;
+            m_has_packet = false;
+        }
+        // Only the controller that owns the active session may tear it down, so a stale
+        // disarm from a previous session cannot drop a newer one. Motors are left to the
+        // main-loop command-timeout failsafe (the controller stops streaming after disarm).
+        else if (arm_flag == protocol::RCCarPacket::ArmFlag::Disarm
+                 && p_session_id == m_active_session_id)
+        {
+            m_active_session_id = 0;
+            m_session_armed = false;
+            m_has_packet = false;
+        }
+    }
+    critical_section_exit(&m_packet_lock);
+}
+
+void CommandReceiver::handle_com_packet(const std::uint8_t* p_payload, const std::uint32_t p_session_id)
+{
+    critical_section_enter_blocking(&m_packet_lock);
+    const bool accept_command = m_session_armed && p_session_id == m_active_session_id;
     critical_section_exit(&m_packet_lock);
     if (!accept_command)
         return;
 
     std::uint32_t session_ms_be{};
-    std::memcpy(&session_ms_be, &payload[protocol::RCCAR_PACKET_SESSION_MS_OFFSET], sizeof(session_ms_be));
+    std::memcpy(&session_ms_be, &p_payload[protocol::RCCAR_PACKET_SESSION_MS_OFFSET], sizeof(session_ms_be));
 
     std::uint16_t x_axis_be{};
-    std::memcpy(&x_axis_be, &payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::CTRL_STATE_X_AXIS_OFFSET], sizeof(x_axis_be));
+    std::memcpy(&x_axis_be, &p_payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::CTRL_STATE_X_AXIS_OFFSET], sizeof(x_axis_be));
 
     std::uint16_t y_axis_be{};
-    std::memcpy(&y_axis_be, &payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::CTRL_STATE_Y_AXIS_OFFSET], sizeof(y_axis_be));
+    std::memcpy(&y_axis_be, &p_payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::CTRL_STATE_Y_AXIS_OFFSET], sizeof(y_axis_be));
 
     ReceivedCommand latest_received_command{};
     latest_received_command.m_received_ms = to_ms_since_boot(get_absolute_time());

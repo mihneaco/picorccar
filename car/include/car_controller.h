@@ -22,22 +22,7 @@ public:
         std::uint16_t m_max_pwm_duty{};
     };
 
-    static constexpr Config ConfigDefault = {
-        .m_adc_min      = 0,
-        .m_adc_max      = 4095,
-        .m_adc_center   = 2048,
-        .m_adc_deadzone = 128,
-        .m_throttle_sign = -1,
-        .m_steer_sign    = -1,
-        .m_motor_a_sign  = -1,
-        .m_motor_b_sign  = 1,
-        .m_max_pwm_duty  = MotorDriver::MAX_PWM_DUTY,
-    };
-    /**
-     * @brief Same as ConfigDefault but caps commanded duty at half the driver max
-     *        for controllability and to limit peak current draw / brownout risk.
-     */
-    static constexpr Config ConfigHalfDuty = {
+    static constexpr Config ConfigMaxDuty = {
         .m_adc_min       = 0,
         .m_adc_max       = 4095,
         .m_adc_center    = 2048,
@@ -46,9 +31,23 @@ public:
         .m_steer_sign    = -1,
         .m_motor_a_sign  = -1,
         .m_motor_b_sign  = 1,
-        .m_max_pwm_duty  = MotorDriver::MAX_PWM_DUTY / 2,
+        .m_max_pwm_duty  = MotorDriver::MAX_PWM_DUTY
     };
-    static constexpr Config ACTIVE_CONFIG = ConfigDefault;
+    /**
+     * @brief Same as ConfigDefault but caps commanded duty for controllability and to limit peak current draw / brownout risk.
+     */
+    static constexpr Config ConfigReducedDuty = {
+        .m_adc_min       = 0,
+        .m_adc_max       = 4095,
+        .m_adc_center    = 2048,
+        .m_adc_deadzone  = 128,
+        .m_throttle_sign = -1,
+        .m_steer_sign    = -1,
+        .m_motor_a_sign  = -1,
+        .m_motor_b_sign  = 1,
+        .m_max_pwm_duty  = MotorDriver::MAX_PWM_DUTY * 3/4
+    };
+    static constexpr Config ACTIVE_CONFIG = ConfigReducedDuty;
 
     CarController(CommandReceiver & p_command_receiver,
                   MotorDriver &p_motor_driver,

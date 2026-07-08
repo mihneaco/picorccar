@@ -30,6 +30,7 @@ public:
     bool start_new_session();
     bool end_session();
     bool send_controller_state(const protocol::CtrlState& p_ctrl_state);
+    bool restart_wifi();
 
 private:
     bool init_wifi();

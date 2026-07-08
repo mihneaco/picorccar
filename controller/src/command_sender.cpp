@@ -19,8 +19,6 @@
 
 namespace
 {
-constexpr std::uint32_t WIFI_CONNECT_TIMEOUT_MS = 10000;
-
 constexpr std::uint32_t SESSION_ARM_PACKET_SPACING_MS = 20;
 constexpr std::uint8_t  SESSION_ARM_PACKET_COUNT      =  3;
 
@@ -66,17 +64,14 @@ bool CommandSender::init()
     if (!init_wifi())
         return false;
 
+    // Kick off the join without blocking boot on it: if the car isn't up yet or the first
+    // attempt fails, the main loop's connect()/is_connected() cycle will keep retrying.
     LOG_INFO("connecting to AP ssid=%s", m_access_point_ssid);
-    const int connect_result = cyw43_arch_wifi_connect_timeout_ms(m_access_point_ssid,
-                                                                  m_access_point_password,
-                                                                  CYW43_AUTH_WPA2_AES_PSK,
-                                                                  WIFI_CONNECT_TIMEOUT_MS);
-    if (connect_result != PICO_OK)
-    {
-        LOG_CRITICAL("Wi-Fi connect failed: %d", connect_result);
-        cleanup();
-        return false;
-    }
+    const int connect_result = cyw43_arch_wifi_connect_async(m_access_point_ssid,
+                                                             m_access_point_password,
+                                                             CYW43_AUTH_WPA2_AES_PSK);
+    if (connect_result != 0)
+        LOG_WARNING("Wi-Fi connect kick-off failed: %d; retrying from main loop", connect_result);
 
     m_initialized = true;
     LOG_INFO("Command sender ready");
@@ -93,6 +88,12 @@ bool CommandSender::init_wifi()
         return false;
     }
     pico_common::enable_led();
+
+#ifdef PICORCCAR_DEBUG
+    // Trace every join/auth/deauth/link event the driver sees, with its real status/reason
+    // code, instead of only the coarse link_status a poll loop would observe.
+    cyw43_state.trace_flags |= CYW43_TRACE_ASYNC_EV;
+#endif
 
     LOG_INFO("enabling STA mode");
     cyw43_arch_enable_sta_mode();
@@ -115,6 +116,40 @@ bool CommandSender::init_wifi()
     return true;
 }
 
+bool CommandSender::restart_wifi()
+{
+    LOG_WARNING("Restarting Wi-Fi stack");
+
+    if (m_udp_pcb != nullptr)
+    {
+        cyw43_arch_lwip_begin();
+        {
+            udp_remove(m_udp_pcb);
+            m_udp_pcb = nullptr;
+        }
+        cyw43_arch_lwip_end();
+    }
+
+    if (m_wifi_initialized)
+    {
+        pico_common::disable_led();
+        cyw43_arch_disable_sta_mode();
+        cyw43_arch_deinit();
+        m_wifi_initialized = false;
+    }
+
+    if (!init_wifi())
+        return false;
+
+    const int connect_result = cyw43_arch_wifi_connect_async(m_access_point_ssid,
+                                                             m_access_point_password,
+                                                             CYW43_AUTH_WPA2_AES_PSK);
+    if (connect_result != 0)
+        LOG_WARNING("Wi-Fi connect kick-off failed: %d; retrying from main loop", connect_result);
+
+    return true;
+}
+
 bool CommandSender::connect()
 {
     if (!m_wifi_initialized)
@@ -130,8 +165,28 @@ bool CommandSender::connect()
     }
     m_last_conn_attempt_ms = now_ms;
 
+    const int link_status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+
+    if (link_status != CYW43_LINK_UP)
+    {
+        // CYW43_LINK_JOIN means a join is already in flight - let it finish rather than
+        // restarting it every RECONNECT_ATTEMPT_MS.
+        if (link_status != CYW43_LINK_JOIN)
+        {
+            LOG_WARNING("STA link down (status=%d), reconnecting to ssid=%s", link_status, m_access_point_ssid);
+            cyw43_arch_wifi_connect_async(m_access_point_ssid, m_access_point_password, CYW43_AUTH_WPA2_AES_PSK);
+        }
+        return false;
+    }
+
     cyw43_arch_lwip_begin();
     {
+        if (m_udp_pcb != nullptr)
+        {
+            udp_remove(m_udp_pcb);
+            m_udp_pcb = nullptr;
+        }
+
         m_udp_pcb = udp_new_ip_type(IPADDR_TYPE_V4);
         if (m_udp_pcb == nullptr)
         {
@@ -164,7 +219,12 @@ bool CommandSender::connect()
 
 bool CommandSender::is_connected()
 {
-    return m_initialized && m_udp_pcb != nullptr;
+    if (!m_initialized || m_udp_pcb == nullptr)
+        return false;
+
+    // udp_connect() has no handshake and can't detect a lost association on its own, so the
+    // pcb existing above is not enough - confirm the STA link is actually up.
+    return cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP;
 }
 
 bool CommandSender::start_new_session()

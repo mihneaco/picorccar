@@ -63,11 +63,12 @@ void RemoteController::run()
     LOG_INFO("Starting Controller MAIN LOOP");
     while (true)
     {
-        if (!m_command_sender.is_connected() && !m_command_sender.connect())
-            continue;
-
-        if (const std::optional<JoystickController::Sample> joystick_sample = m_joystick_controller.read())
-            handle_joystick_sample(*joystick_sample);
+        const bool connected = m_command_sender.is_connected() || m_command_sender.connect();
+        if (connected)
+        {
+            if (const std::optional<JoystickController::Sample> joystick_sample = m_joystick_controller.read())
+                handle_joystick_sample(*joystick_sample);
+        }
 
         sleep_ms(MAIN_LOOP_SLEEP_MS);
     }
