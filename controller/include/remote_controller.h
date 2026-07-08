@@ -31,4 +31,5 @@ private:
 
     std::optional<protocol::CtrlState> m_last_sent_controller_state{};
     std::uint32_t m_last_successful_send_ms{};
+    std::uint32_t m_last_rssi_log_ms{};
 };

@@ -4,11 +4,14 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <optional>
 #include "pico/stdlib.h"
 
 namespace
 {
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
+/// Range-collapse instrumentation: sample the controller's RSSI at a rate the log can absorb.
+constexpr std::uint32_t RSSI_LOG_PERIOD_MS = 1000;
 #ifdef PICORCCAR_DEBUG
 constexpr std::uint32_t DEBUG_PACKET_TRACE_PERIOD_MS = 500;
 #endif
@@ -77,6 +80,7 @@ void CarController::run()
     LOG_INFO("Starting MAIN loop");
     CommandReceiver::ReceivedCommand latest_received_command{};
     std::uint32_t last_packet_ms{to_ms_since_boot(get_absolute_time())};
+    std::uint32_t last_rssi_log_ms{};
     bool motors_stopped{false};
     while (true)
     {
@@ -87,6 +91,18 @@ void CarController::run()
             motors_stopped = false;
             set_target(latest_received_command.m_ctrl_state);
             print_packet(latest_received_command);
+        }
+
+        if (m_command_receiver.consume_restart_request())
+        {
+            // Failsafe stop before the restart: the Wi-Fi bounce blocks this loop for a
+            // while, so the motors must not be left driving through it.
+            stop();
+            motors_stopped = true;
+            LOG_WARNING("Remote Wi-Fi restart requested");
+            if (!m_command_receiver.restart_wifi())
+                LOG_CRITICAL("Wi-Fi restart failed; motors stopped, no command source");
+            last_packet_ms = to_ms_since_boot(get_absolute_time());
         }
 
         const std::uint32_t packet_age_ms = to_ms_since_boot(get_absolute_time()) - last_packet_ms;
@@ -100,6 +116,14 @@ void CarController::run()
         // Advance the duty ramp every tick, independent of packet arrival, so the applied
         // duty keeps chasing the latest target between commands.
         m_motor_driver.service();
+
+        const std::uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+        if (now_ms - last_rssi_log_ms >= RSSI_LOG_PERIOD_MS)
+        {
+            last_rssi_log_ms = now_ms;
+            if (const std::optional<std::int32_t> rssi = m_command_receiver.read_client_rssi())
+                LOG_INFO("Client RSSI %ld dBm", static_cast<long>(*rssi));
+        }
 
         sleep_ms(MAIN_LOOP_SLEEP_MS);
     }

@@ -19,8 +19,8 @@
 
 namespace
 {
-constexpr std::uint32_t SESSION_ARM_PACKET_SPACING_MS = 20;
-constexpr std::uint8_t  SESSION_ARM_PACKET_COUNT      =  3;
+constexpr std::uint32_t CONTROL_PACKET_SPACING_MS = 20;
+constexpr std::uint8_t  CONTROL_PACKET_COUNT      =  3;
 
 constexpr std::uint32_t RECONNECT_ATTEMPT_MS = 1000;
 }
@@ -119,6 +119,10 @@ bool CommandSender::init_wifi()
 bool CommandSender::restart_wifi()
 {
     LOG_WARNING("Restarting Wi-Fi stack");
+
+    // The session dies with the stack; the main loop auto-arms a fresh one on reconnect.
+    m_session_active = false;
+    m_session_id = 0;
 
     if (m_udp_pcb != nullptr)
     {
@@ -227,6 +231,18 @@ bool CommandSender::is_connected()
     return cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP;
 }
 
+std::optional<std::int32_t> CommandSender::read_rssi()
+{
+    if (!is_connected())
+        return std::nullopt;
+
+    std::int32_t rssi{};
+    if (cyw43_wifi_get_rssi(&cyw43_state, &rssi) != 0)
+        return std::nullopt;
+
+    return rssi;
+}
+
 bool CommandSender::start_new_session()
 {
     LOG_INFO();
@@ -263,19 +279,41 @@ bool CommandSender::end_session()
 
 bool CommandSender::send_session_control(const protocol::RCCarPacket::ArmFlag p_arm_flag)
 {
-    // Repeat the control packet a few times: it is a one-shot state change on a lossy link, so
-    // unlike the streamed COM packets there is no next packet to cover a drop.
     protocol::RCCarPacket arm_packet{};
     arm_packet.m_mode = protocol::RCCarPacket::Mode::ARM;
     arm_packet.m_session_id = m_session_id;
     arm_packet.m_payload[protocol::ARM_FLAG_OFFSET] = static_cast<std::uint8_t>(p_arm_flag);
 
-    bool sent_all_packets = true;
-    for (std::uint8_t idx = 0; idx < SESSION_ARM_PACKET_COUNT; ++idx)
+    return send_packet_repeated(arm_packet);
+}
+
+bool CommandSender::send_wifi_restart()
+{
+    LOG_INFO();
+
+    if (!m_session_active)
     {
-        arm_packet.m_session_ms = to_ms_since_boot(get_absolute_time());
-        sent_all_packets = send_packet(arm_packet) && sent_all_packets;
-        sleep_ms(SESSION_ARM_PACKET_SPACING_MS);
+        LOG_WARNING("Wi-Fi restart send requested without an active session");
+        return false;
+    }
+
+    protocol::RCCarPacket restart_packet{};
+    restart_packet.m_mode = protocol::RCCarPacket::Mode::RST;
+    restart_packet.m_session_id = m_session_id;
+
+    return send_packet_repeated(restart_packet);
+}
+
+bool CommandSender::send_packet_repeated(protocol::RCCarPacket& p_packet)
+{
+    // Repeat one-shot control packets a few times: they are single state changes on a lossy
+    // link, so unlike the streamed COM packets there is no next packet to cover a drop.
+    bool sent_all_packets = true;
+    for (std::uint8_t idx = 0; idx < CONTROL_PACKET_COUNT; ++idx)
+    {
+        p_packet.m_session_ms = to_ms_since_boot(get_absolute_time());
+        sent_all_packets = send_packet(p_packet) && sent_all_packets;
+        sleep_ms(CONTROL_PACKET_SPACING_MS);
     }
 
     return sent_all_packets;

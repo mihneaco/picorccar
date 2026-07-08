@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <type_traits>
 
 #include "lwip/ip_addr.h"
@@ -30,11 +31,19 @@ public:
     bool start_new_session();
     bool end_session();
     bool send_controller_state(const protocol::CtrlState& p_ctrl_state);
+    bool send_wifi_restart();
     bool restart_wifi();
+    /**
+     * @brief Read the RSSI in dBm of the link to the car's AP.
+     * @return std::nullopt when the STA link is down or the query fails.
+     * @note Issues a blocking CYW43 ioctl; call at a low rate from the main loop only.
+     */
+    std::optional<std::int32_t> read_rssi();
 
 private:
     bool init_wifi();
     bool send_session_control(protocol::RCCarPacket::ArmFlag p_arm_flag);
+    bool send_packet_repeated(protocol::RCCarPacket& p_packet);
     bool send_packet(const protocol::RCCarPacket& p_packet);
     bool send_packet_bytes(const void* p_payload, std::size_t p_length);
     void cleanup();

@@ -10,13 +10,22 @@ namespace
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 
 /**
- * @brief The session toggle must be a deliberate gesture: the button has to be held
- *        for SESSION_TOGGLE_HOLD_MS while the stick stays near center. This rejects
+ * @brief The Wi-Fi restart must be a deliberate gesture: the button has to be held
+ *        for WIFI_RESTART_HOLD_MS while the stick stays near center. This rejects
  *        the accidental Z-button actuation that happens when the stick is shoved into
  *        a corner.
  */
-constexpr std::uint32_t SESSION_TOGGLE_HOLD_MS = 500;
-constexpr std::uint16_t SESSION_TOGGLE_CENTER_TOLERANCE = 512;
+constexpr std::uint32_t WIFI_RESTART_HOLD_MS = 500;
+constexpr std::uint16_t WIFI_RESTART_CENTER_TOLERANCE = 512;
+
+/**
+ * @brief Delay between commanding the car's Wi-Fi restart and bouncing our own stack,
+ *        so the RST packets drain out of the driver before it is torn down.
+ */
+constexpr std::uint32_t LOCAL_WIFI_RESTART_DELAY_MS = 500;
+
+/// Range-collapse instrumentation: sample the AP link RSSI at a rate the log can absorb.
+constexpr std::uint32_t RSSI_LOG_PERIOD_MS = 1000;
 }
 
 RemoteController::RemoteController(JoystickController& p_joystick_controller,
@@ -66,8 +75,28 @@ void RemoteController::run()
         const bool connected = m_command_sender.is_connected() || m_command_sender.connect();
         if (connected)
         {
+            // Arm as soon as the link is up, and re-arm with a fresh session after every
+            // link loss or Wi-Fi restart.
+            if (!m_session_started)
+            {
+                m_session_started = m_command_sender.start_new_session();
+                LOG_INFO("Session start %s", m_session_started ? "succeeded" : "failed");
+            }
+
             if (const std::optional<JoystickController::Sample> joystick_sample = m_joystick_controller.read())
                 handle_joystick_sample(*joystick_sample);
+
+            const std::uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+            if (now_ms - m_last_rssi_log_ms >= RSSI_LOG_PERIOD_MS)
+            {
+                m_last_rssi_log_ms = now_ms;
+                if (const std::optional<std::int32_t> rssi = m_command_sender.read_rssi())
+                    LOG_INFO("RSSI %ld dBm", static_cast<long>(*rssi));
+            }
+        }
+        else
+        {
+            m_session_started = false;
         }
 
         sleep_ms(MAIN_LOOP_SLEEP_MS);
@@ -91,8 +120,8 @@ void RemoteController::handle_joystick_button(const JoystickController::Sample& 
     }
 
     // Any drift away from center cancels the in-progress hold so a corner press
-    // never accumulates toward the toggle.
-    if (p_sample.max_center_offset() > SESSION_TOGGLE_CENTER_TOLERANCE)
+    // never accumulates toward the restart.
+    if (p_sample.max_center_offset() > WIFI_RESTART_CENTER_TOLERANCE)
     {
         m_button_hold_start_ms.reset();
         m_fired = false;
@@ -105,21 +134,19 @@ void RemoteController::handle_joystick_button(const JoystickController::Sample& 
     const std::uint32_t now_ms = to_ms_since_boot(get_absolute_time());
     if (!m_button_hold_start_ms.has_value())
         m_button_hold_start_ms = now_ms;
-    if (now_ms - *m_button_hold_start_ms > SESSION_TOGGLE_HOLD_MS)
+    if (now_ms - *m_button_hold_start_ms > WIFI_RESTART_HOLD_MS)
     {
-        if (m_session_started)
-        {
-            // Relinquish control: explicitly disarm so the car drops the session in sync with
-            // us, then stop streaming so its command-timeout failsafe stops the motors.
-            m_command_sender.end_session();
-            m_session_started = false;
-            LOG_INFO("Session relinquished; car disarmed");
-        }
-        else
-        {
-            m_session_started = m_command_sender.start_new_session();
-            LOG_INFO("Session start %s", m_session_started ? "succeeded" : "failed");
-        }
+        /*
+         * Remote recovery button: bounce the car's Wi-Fi first, then our own after a short
+         * drain delay. The car stops its motors before restarting, and the auto-arm in run()
+         * re-establishes a fresh session once both links are back.
+         */
+        LOG_INFO("Wi-Fi restart gesture: restarting car, then controller");
+        m_command_sender.send_wifi_restart();
+        sleep_ms(LOCAL_WIFI_RESTART_DELAY_MS);
+        m_session_started = false;
+        if (!m_command_sender.restart_wifi())
+            LOG_CRITICAL("Local Wi-Fi restart failed");
 
         m_fired = true;
     }

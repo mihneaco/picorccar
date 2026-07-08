@@ -16,6 +16,9 @@
 
 namespace
 {
+constexpr std::size_t MAC_ADDRESS_LEN = 6;
+/// Only one controller is expected; a small margin covers stray associations.
+constexpr int MAX_RSSI_CLIENTS = 4;
 }
 
 CommandReceiver::CommandReceiver(const char* const p_access_point_ssid,
@@ -200,6 +203,10 @@ void CommandReceiver::receive_callback(pbuf* p_packet)
         handle_com_packet(payload, session_id);
         break;
 
+    case protocol::RCCarPacket::Mode::RST:
+        handle_rst_packet(session_id);
+        break;
+
     default:
         break;
     }
@@ -261,6 +268,57 @@ void CommandReceiver::handle_com_packet(const std::uint8_t* p_payload, const std
         m_has_packet = true;
     }
     critical_section_exit(&m_packet_lock);
+}
+
+void CommandReceiver::handle_rst_packet(const std::uint32_t p_session_id)
+{
+    critical_section_enter_blocking(&m_packet_lock);
+    {
+        if (m_session_armed && p_session_id == m_active_session_id)
+            m_restart_requested = true;
+    }
+    critical_section_exit(&m_packet_lock);
+}
+
+bool CommandReceiver::consume_restart_request()
+{
+    bool restart_requested = false;
+
+    critical_section_enter_blocking(&m_packet_lock);
+    {
+        restart_requested = m_restart_requested;
+        m_restart_requested = false;
+    }
+    critical_section_exit(&m_packet_lock);
+
+    return restart_requested;
+}
+
+std::optional<std::int32_t> CommandReceiver::read_client_rssi()
+{
+    if (!m_wifi_initialized)
+        return std::nullopt;
+
+    // num_stas is in/out: buffer capacity in, associated station count out.
+    int num_stas = MAX_RSSI_CLIENTS;
+    std::uint8_t sta_macs[MAX_RSSI_CLIENTS * MAC_ADDRESS_LEN]{};
+    cyw43_wifi_ap_get_stas(&cyw43_state, &num_stas, sta_macs);
+    if (num_stas <= 0)
+        return std::nullopt;
+
+    /*
+     * Per-client RSSI is not wrapped by the driver: WLC_GET_RSSI on the AP interface takes
+     * an scb_val_t (32-bit value slot followed by the client MAC) and overwrites the value
+     * slot with the RSSI in dBm.
+     */
+    std::uint8_t scb_val[sizeof(std::int32_t) + MAC_ADDRESS_LEN]{};
+    std::memcpy(&scb_val[sizeof(std::int32_t)], sta_macs, MAC_ADDRESS_LEN);
+    if (cyw43_ioctl(&cyw43_state, CYW43_IOCTL_GET_RSSI, sizeof(scb_val), scb_val, CYW43_ITF_AP) != 0)
+        return std::nullopt;
+
+    std::int32_t rssi{};
+    std::memcpy(&rssi, scb_val, sizeof(rssi));
+    return rssi;
 }
 
 bool CommandReceiver::get_packet(ReceivedCommand& p_received_command)

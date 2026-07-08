@@ -46,6 +46,7 @@ struct RCCarPacket
     {
         COM = 0,
         ARM = 1,
+        RST = 2,
         LAST
     };
 
