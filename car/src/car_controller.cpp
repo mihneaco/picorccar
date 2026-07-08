@@ -117,8 +117,15 @@ void CarController::run()
         // duty keeps chasing the latest target between commands.
         m_motor_driver.service();
 
+        /*
+         * Poll RSSI only while the motors are already stopped: the query issues blocking
+         * CYW43 ioctls that can stall this loop for the full driver timeout, which must
+         * never delay the command-timeout failsafe while the motors are driving. The
+         * degraded-link state we are instrumenting stops the motors via that failsafe
+         * anyway, so the interesting samples are still captured.
+         */
         const std::uint32_t now_ms = to_ms_since_boot(get_absolute_time());
-        if (now_ms - last_rssi_log_ms >= RSSI_LOG_PERIOD_MS)
+        if (motors_stopped && now_ms - last_rssi_log_ms >= RSSI_LOG_PERIOD_MS)
         {
             last_rssi_log_ms = now_ms;
             if (const std::optional<std::int32_t> rssi = m_command_receiver.read_client_rssi())

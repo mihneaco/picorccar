@@ -66,6 +66,8 @@ private:
     bool m_restart_requested{};
     std::uint32_t m_active_session_id{};
     bool m_session_armed{};
+    /// Latched on the first failed RSSI ioctl; cleared by restart_wifi().
+    bool m_rssi_read_failed{};
     bool m_initialized{};
     bool m_wifi_initialized{};
 };

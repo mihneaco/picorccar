@@ -79,6 +79,15 @@ bool CommandReceiver::init_wifi()
                               m_access_point_password,
                               CYW43_AUTH_WPA2_AES_PSK);
 
+    /*
+     * AP bring-up applies the chip-wide default PM2 power-save mode, same as STA mode.
+     * Keep the radio awake so link dropouts can't originate from a dozing AP radio and
+     * both ends are in a known PM state for range testing.
+     */
+    const int pm_result = cyw43_wifi_pm(&cyw43_state, CYW43_NONE_PM);
+    if (pm_result != 0)
+        LOG_WARNING("cyw43_wifi_pm(CYW43_NONE_PM) failed: %d", pm_result);
+
     m_wifi_initialized = true;
     return true;
 }
@@ -86,6 +95,8 @@ bool CommandReceiver::init_wifi()
 bool CommandReceiver::restart_wifi()
 {
     LOG_WARNING("Restarting Wi-Fi stack");
+
+    m_rssi_read_failed = false;
 
     if (m_udp_pcb != nullptr)
     {
@@ -296,7 +307,7 @@ bool CommandReceiver::consume_restart_request()
 
 std::optional<std::int32_t> CommandReceiver::read_client_rssi()
 {
-    if (!m_wifi_initialized)
+    if (m_rssi_read_failed || !m_wifi_initialized)
         return std::nullopt;
 
     // num_stas is in/out: buffer capacity in, associated station count out.
@@ -306,15 +317,32 @@ std::optional<std::int32_t> CommandReceiver::read_client_rssi()
     if (num_stas <= 0)
         return std::nullopt;
 
+    LOG_DEBUG("stas=%d mac=%02x:%02x:%02x:%02x:%02x:%02x",
+              num_stas,
+              sta_macs[0], sta_macs[1], sta_macs[2], sta_macs[3], sta_macs[4], sta_macs[5]);
+
     /*
      * Per-client RSSI is not wrapped by the driver: WLC_GET_RSSI on the AP interface takes
-     * an scb_val_t (32-bit value slot followed by the client MAC) and overwrites the value
-     * slot with the RSSI in dBm.
+     * an scb_val_t (32-bit value slot, client MAC, 2 bytes struct padding) and overwrites
+     * the value slot with the RSSI in dBm.
      */
-    std::uint8_t scb_val[sizeof(std::int32_t) + MAC_ADDRESS_LEN]{};
+    constexpr std::size_t SCB_VAL_SIZE = sizeof(std::int32_t) + MAC_ADDRESS_LEN + 2;
+    std::uint8_t scb_val[SCB_VAL_SIZE]{};
     std::memcpy(&scb_val[sizeof(std::int32_t)], sta_macs, MAC_ADDRESS_LEN);
-    if (cyw43_ioctl(&cyw43_state, CYW43_IOCTL_GET_RSSI, sizeof(scb_val), scb_val, CYW43_ITF_AP) != 0)
+    const int ioctl_result =
+        cyw43_ioctl(&cyw43_state, CYW43_IOCTL_GET_RSSI, sizeof(scb_val), scb_val, CYW43_ITF_AP);
+    if (ioctl_result != 0)
+    {
+        /*
+         * A timed-out ioctl blocks for the full driver timeout while holding the CYW43 lock,
+         * and its late response can desync the SDPCM control channel for every ioctl after
+         * it. Latch polling off instead of re-poking a wedged driver every period; the
+         * Wi-Fi restart path re-enables it.
+         */
+        m_rssi_read_failed = true;
+        LOG_WARNING("GET_RSSI ioctl failed (%d); polling disabled until Wi-Fi restart", ioctl_result);
         return std::nullopt;
+    }
 
     std::int32_t rssi{};
     std::memcpy(&rssi, scb_val, sizeof(rssi));

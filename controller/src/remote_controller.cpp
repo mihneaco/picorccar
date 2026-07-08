@@ -26,6 +26,13 @@ constexpr std::uint32_t LOCAL_WIFI_RESTART_DELAY_MS = 500;
 
 /// Range-collapse instrumentation: sample the AP link RSSI at a rate the log can absorb.
 constexpr std::uint32_t RSSI_LOG_PERIOD_MS = 1000;
+
+/**
+ * @brief Join watchdog deadline: a healthy join completes in ~3 s, so a link that has been
+ *        down this long is assumed stuck in the driver's internal rejoin loop and the whole
+ *        stack is restarted. Generous enough to never preempt a genuine slow join.
+ */
+constexpr std::uint32_t WIFI_JOIN_WATCHDOG_MS = 15000;
 }
 
 RemoteController::RemoteController(JoystickController& p_joystick_controller,
@@ -70,11 +77,15 @@ void RemoteController::run()
     }
 
     LOG_INFO("Starting Controller MAIN LOOP");
+    m_last_link_up_ms = to_ms_since_boot(get_absolute_time());
     while (true)
     {
         const bool connected = m_command_sender.is_connected() || m_command_sender.connect();
+        const std::uint32_t now_ms = to_ms_since_boot(get_absolute_time());
         if (connected)
         {
+            m_last_link_up_ms = now_ms;
+
             // Arm as soon as the link is up, and re-arm with a fresh session after every
             // link loss or Wi-Fi restart.
             if (!m_session_started)
@@ -86,7 +97,6 @@ void RemoteController::run()
             if (const std::optional<JoystickController::Sample> joystick_sample = m_joystick_controller.read())
                 handle_joystick_sample(*joystick_sample);
 
-            const std::uint32_t now_ms = to_ms_since_boot(get_absolute_time());
             if (now_ms - m_last_rssi_log_ms >= RSSI_LOG_PERIOD_MS)
             {
                 m_last_rssi_log_ms = now_ms;
@@ -97,6 +107,17 @@ void RemoteController::run()
         else
         {
             m_session_started = false;
+
+            // Join watchdog: escape the driver's internal rejoin loop, which keeps the link
+            // status at CYW43_LINK_JOIN forever without ever reporting failure.
+            if (now_ms - m_last_link_up_ms > WIFI_JOIN_WATCHDOG_MS)
+            {
+                LOG_WARNING("Link down for %lu ms; forcing Wi-Fi restart",
+                            static_cast<unsigned long>(now_ms - m_last_link_up_ms));
+                if (!m_command_sender.restart_wifi())
+                    LOG_CRITICAL("Watchdog Wi-Fi restart failed");
+                m_last_link_up_ms = to_ms_since_boot(get_absolute_time());
+            }
         }
 
         sleep_ms(MAIN_LOOP_SLEEP_MS);

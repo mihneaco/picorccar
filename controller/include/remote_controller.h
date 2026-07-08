@@ -32,4 +32,13 @@ private:
     std::optional<protocol::CtrlState> m_last_sent_controller_state{};
     std::uint32_t m_last_successful_send_ms{};
     std::uint32_t m_last_rssi_log_ms{};
+
+    /**
+     * @brief Last time the link was seen connected, for the join watchdog.
+     * @details The CYW43 driver can loop a doomed join internally forever (edge-of-range
+     *          WPA2 handshake timeouts keep the link status at CYW43_LINK_JOIN without ever
+     *          reporting failure), so connect() alone never escalates. If the link stays
+     *          down past the watchdog deadline, run() forces a full Wi-Fi restart.
+     */
+    std::uint32_t m_last_link_up_ms{};
 };

@@ -18,7 +18,7 @@ struct Timing
 inline constexpr Timing TimingBalanced { 50, 250};
 inline constexpr Timing TimingRelaxed  {100, 400};
 inline constexpr Timing TimingSnappy   { 20, 150};
-inline constexpr Timing ACTIVE_TIMING = TimingBalanced;
+inline constexpr Timing ACTIVE_TIMING = TimingRelaxed;
 
 struct CtrlState
 {

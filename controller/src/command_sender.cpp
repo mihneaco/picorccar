@@ -97,6 +97,16 @@ bool CommandSender::init_wifi()
 
     LOG_INFO("enabling STA mode");
     cyw43_arch_enable_sta_mode();
+
+    /*
+     * The default PM2 power-save mode lets the STA radio doze between traffic and is a
+     * known cause of multi-second dropout/latency bursts at range. Keep the radio awake;
+     * the extra idle draw is irrelevant on the handheld controller.
+     */
+    const int pm_result = cyw43_wifi_pm(&cyw43_state, CYW43_NONE_PM);
+    if (pm_result != 0)
+        LOG_WARNING("cyw43_wifi_pm(CYW43_NONE_PM) failed: %d", pm_result);
+
     const ip4_addr_t station_address{
         .addr = lwip_htonl(CYW43_DEFAULT_IP_STA_ADDRESS)};
     const ip4_addr_t station_netmask{
@@ -123,6 +133,7 @@ bool CommandSender::restart_wifi()
     // The session dies with the stack; the main loop auto-arms a fresh one on reconnect.
     m_session_active = false;
     m_session_id = 0;
+    m_rssi_read_failed = false;
 
     if (m_udp_pcb != nullptr)
     {
@@ -233,12 +244,22 @@ bool CommandSender::is_connected()
 
 std::optional<std::int32_t> CommandSender::read_rssi()
 {
-    if (!is_connected())
+    if (m_rssi_read_failed || !is_connected())
         return std::nullopt;
 
     std::int32_t rssi{};
     if (cyw43_wifi_get_rssi(&cyw43_state, &rssi) != 0)
+    {
+        /*
+         * A timed-out ioctl blocks for the full driver timeout while holding the CYW43 lock,
+         * and its late response can desync the SDPCM control channel for every ioctl after
+         * it. Latch polling off instead of re-poking a wedged driver every period; the
+         * Wi-Fi restart path re-enables it.
+         */
+        m_rssi_read_failed = true;
+        LOG_WARNING("RSSI read failed; polling disabled until Wi-Fi restart");
         return std::nullopt;
+    }
 
     return rssi;
 }
