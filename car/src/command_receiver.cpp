@@ -81,6 +81,17 @@ bool CommandReceiver::init_wifi()
     if (pm_result != 0)
         LOG_WARNING("cyw43_wifi_pm(CYW43_NONE_PM) failed: %d", pm_result);
 
+    /*
+     * Requires https://github.com/georgerobotics/cyw43-driver/pull/151 (branch pr-151).
+     * Must run AFTER enable_sta_mode/ enable_ap_mode
+     */
+    const int roam_result = cyw43_wifi_set_roam_enabled(&cyw43_state, false);
+    if (roam_result != 0)
+        LOG_WARNING("cyw43_wifi_set_roam_enabled(false) failed: %d", roam_result);
+    const int interference_result = cyw43_wifi_set_interference_mode(&cyw43_state, CYW43_IFMODE_NONE);
+    if (interference_result != 0)
+        LOG_WARNING("cyw43_wifi_set_interference_mode(NONE) failed: %d", interference_result);
+
     m_wifi_initialized = true;
     return true;
 }
