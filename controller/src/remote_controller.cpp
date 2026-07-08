@@ -24,9 +24,6 @@ constexpr std::uint16_t WIFI_RESTART_CENTER_TOLERANCE = 512;
  */
 constexpr std::uint32_t LOCAL_WIFI_RESTART_DELAY_MS = 500;
 
-/// Range-collapse instrumentation: sample the AP link RSSI at a rate the log can absorb.
-constexpr std::uint32_t RSSI_LOG_PERIOD_MS = 1000;
-
 /**
  * @brief Join watchdog deadline: a healthy join completes in ~3 s, so a link that has been
  *        down this long is assumed stuck in the driver's internal rejoin loop and the whole
@@ -96,13 +93,6 @@ void RemoteController::run()
 
             if (const std::optional<JoystickController::Sample> joystick_sample = m_joystick_controller.read())
                 handle_joystick_sample(*joystick_sample);
-
-            if (now_ms - m_last_rssi_log_ms >= RSSI_LOG_PERIOD_MS)
-            {
-                m_last_rssi_log_ms = now_ms;
-                if (const std::optional<std::int32_t> rssi = m_command_sender.read_rssi())
-                    LOG_INFO("RSSI %ld dBm", static_cast<long>(*rssi));
-            }
         }
         else
         {

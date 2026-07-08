@@ -133,7 +133,6 @@ bool CommandSender::restart_wifi()
     // The session dies with the stack; the main loop auto-arms a fresh one on reconnect.
     m_session_active = false;
     m_session_id = 0;
-    m_rssi_read_failed = false;
 
     if (m_udp_pcb != nullptr)
     {
@@ -240,28 +239,6 @@ bool CommandSender::is_connected()
     // udp_connect() has no handshake and can't detect a lost association on its own, so the
     // pcb existing above is not enough - confirm the STA link is actually up.
     return cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA) == CYW43_LINK_UP;
-}
-
-std::optional<std::int32_t> CommandSender::read_rssi()
-{
-    if (m_rssi_read_failed || !is_connected())
-        return std::nullopt;
-
-    std::int32_t rssi{};
-    if (cyw43_wifi_get_rssi(&cyw43_state, &rssi) != 0)
-    {
-        /*
-         * A timed-out ioctl blocks for the full driver timeout while holding the CYW43 lock,
-         * and its late response can desync the SDPCM control channel for every ioctl after
-         * it. Latch polling off instead of re-poking a wedged driver every period; the
-         * Wi-Fi restart path re-enables it.
-         */
-        m_rssi_read_failed = true;
-        LOG_WARNING("RSSI read failed; polling disabled until Wi-Fi restart");
-        return std::nullopt;
-    }
-
-    return rssi;
 }
 
 bool CommandSender::start_new_session()

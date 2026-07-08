@@ -4,14 +4,11 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <optional>
 #include "pico/stdlib.h"
 
 namespace
 {
 constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
-/// Range-collapse instrumentation: sample the controller's RSSI at a rate the log can absorb.
-constexpr std::uint32_t RSSI_LOG_PERIOD_MS = 1000;
 #ifdef PICORCCAR_DEBUG
 constexpr std::uint32_t DEBUG_PACKET_TRACE_PERIOD_MS = 500;
 #endif
@@ -80,7 +77,6 @@ void CarController::run()
     LOG_INFO("Starting MAIN loop");
     CommandReceiver::ReceivedCommand latest_received_command{};
     std::uint32_t last_packet_ms{to_ms_since_boot(get_absolute_time())};
-    std::uint32_t last_rssi_log_ms{};
     bool motors_stopped{false};
     while (true)
     {
@@ -116,21 +112,6 @@ void CarController::run()
         // Advance the duty ramp every tick, independent of packet arrival, so the applied
         // duty keeps chasing the latest target between commands.
         m_motor_driver.service();
-
-        /*
-         * Poll RSSI only while the motors are already stopped: the query issues blocking
-         * CYW43 ioctls that can stall this loop for the full driver timeout, which must
-         * never delay the command-timeout failsafe while the motors are driving. The
-         * degraded-link state we are instrumenting stops the motors via that failsafe
-         * anyway, so the interesting samples are still captured.
-         */
-        const std::uint32_t now_ms = to_ms_since_boot(get_absolute_time());
-        if (motors_stopped && now_ms - last_rssi_log_ms >= RSSI_LOG_PERIOD_MS)
-        {
-            last_rssi_log_ms = now_ms;
-            if (const std::optional<std::int32_t> rssi = m_command_receiver.read_client_rssi())
-                LOG_INFO("Client RSSI %ld dBm", static_cast<long>(*rssi));
-        }
 
         sleep_ms(MAIN_LOOP_SLEEP_MS);
     }

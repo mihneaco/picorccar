@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 
 #include "pico/critical_section.h"
 
@@ -35,13 +34,6 @@ public:
     bool get_packet(ReceivedCommand& p_received_command);
     bool restart_wifi();
     bool consume_restart_request();
-    /**
-     * @brief Read the RSSI in dBm of the first associated station (the controller).
-     * @return std::nullopt when no station is associated or the query fails.
-     * @note Issues blocking CYW43 ioctls; call at a low rate from the main loop only,
-     *       never from a callback.
-     */
-    std::optional<std::int32_t> read_client_rssi();
 
 private:
     bool init_wifi();
@@ -66,8 +58,6 @@ private:
     bool m_restart_requested{};
     std::uint32_t m_active_session_id{};
     bool m_session_armed{};
-    /// Latched on the first failed RSSI ioctl; cleared by restart_wifi().
-    bool m_rssi_read_failed{};
     bool m_initialized{};
     bool m_wifi_initialized{};
 };
