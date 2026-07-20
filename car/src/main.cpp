@@ -10,9 +10,9 @@
 
 namespace
 {
-constexpr char ACCESS_POINT_SSID[] = PICORCCAR_ACCESS_POINT_SSID;
-constexpr char ACCESS_POINT_PSK[] = PICORCCAR_ACCESS_POINT_PSK;
-constexpr std::uint16_t UDP_SERVER_PORT = PICORCCAR_UDP_SERVER_PORT;
+constexpr char          ACCESS_POINT_SSID[] = PICORCCAR_ACCESS_POINT_SSID;
+constexpr char          ACCESS_POINT_PSK[]  = PICORCCAR_ACCESS_POINT_PSK;
+constexpr std::uint16_t UDP_SERVER_PORT     = PICORCCAR_UDP_SERVER_PORT;
 }
 
 int main()

@@ -91,8 +91,7 @@ void CarController::run()
 
         if (m_command_receiver.consume_restart_request())
         {
-            // Failsafe stop before the restart: the Wi-Fi bounce blocks this loop for a
-            // while, so the motors must not be left driving through it.
+            // Failsafe stop before the restart
             stop();
             motors_stopped = true;
             LOG_WARNING("Remote Wi-Fi restart requested");
@@ -109,8 +108,6 @@ void CarController::run()
             motors_stopped = true;
         }
 
-        // Advance the duty ramp every tick, independent of packet arrival, so the applied
-        // duty keeps chasing the latest target between commands.
         m_motor_driver.service();
 
         sleep_ms(MAIN_LOOP_SLEEP_MS);
@@ -125,15 +122,21 @@ void CarController::set_target(const protocol::CtrlState& p_ctrl_state)
                                                               m_config.m_steer_sign);
     const std::int32_t max_pwm_duty = static_cast<std::int32_t>(m_config.m_max_pwm_duty);
 
+    // Scale down steer's contribution before mixing: throttle and steer are computed with
+    // identical deadzone/expo shaping, so an unscaled mix cancels motor_a to exactly zero
+    // whenever |throttle| == |steer| (e.g. any 45-degree diagonal)
+    const std::int32_t scaled_steer_command =
+        (steer_command * static_cast<std::int32_t>(m_config.m_steer_scale_percent)) / 100;
+
     // Differential-drive mix: throttle drives both motors together, steering biases them apart.
     // Standard convention: positive steer = counter-clockwise (left turn), so the left motor (A)
     // slows and the right motor (B) speeds up.
     const std::int32_t motor_a_command =
-        std::clamp((throttle_command - steer_command) * m_config.m_motor_a_sign,
+        std::clamp((throttle_command - scaled_steer_command) * m_config.m_motor_a_sign,
                    -max_pwm_duty,
                    max_pwm_duty);
     const std::int32_t motor_b_command =
-        std::clamp((throttle_command + steer_command) * m_config.m_motor_b_sign,
+        std::clamp((throttle_command + scaled_steer_command) * m_config.m_motor_b_sign,
                    -max_pwm_duty,
                    max_pwm_duty);
 
@@ -162,10 +165,19 @@ std::int32_t CarController::axis_to_signed_command(const std::uint16_t p_adc_val
     if (usable_range <= 0)
         return 0;
 
+    const std::int32_t max_pwm_duty = static_cast<std::int32_t>(m_config.m_max_pwm_duty);
+    if (max_pwm_duty <= 0)
+        return 0;
+
     const std::int32_t adjusted_delta = abs_delta - static_cast<std::int32_t>(m_config.m_adc_deadzone);
-    const std::int32_t scaled_command =
-        (adjusted_delta * static_cast<std::int32_t>(m_config.m_max_pwm_duty)) / usable_range;
-    const std::int32_t signed_command = is_positive ? scaled_command : -scaled_command;
+    const std::int32_t linear_command = (adjusted_delta * max_pwm_duty) / usable_range;
+    // Expo curve: blend linear and squared normalized magnitude (50/50) so small deflections
+    // still command less duty for finer low-speed control, without the pure-square curve's steep
+    // top-end slope -- that slope turned any shortfall from the calibrated adc_max/adc_min (e.g.
+    // stick mechanically not reaching the ADC rails) into a much larger shortfall in top speed.
+    const std::int32_t squared_command = (linear_command * linear_command) / max_pwm_duty;
+    const std::int32_t expo_command = (linear_command + squared_command) / 2;
+    const std::int32_t signed_command = is_positive ? expo_command : -expo_command;
 
     return std::clamp(signed_command * p_sign,
                       -static_cast<std::int32_t>(m_config.m_max_pwm_duty),

@@ -161,15 +161,18 @@ private:
     static constexpr std::uint32_t PWM_TARGET_HZ = 20000;
     static constexpr std::uint32_t DIRECTION_CHANGE_DEADTIME_US = 100;
     /**
-     * @brief   Max signed-duty change per service() call.
-     * @details With a ~20 ms control tick this ramps the full 0..MAX_PWM_DUTY range in
-     *          ~MAX_PWM_DUTY/PWM_SLEW_STEP calls (1000/100 = 10 ~= 200 ms) and a full
-     *          forward<->reverse swing in ~2x that. Capping di/dt this way limits peak
-     *          current draw, brownout risk, and the audible reversal thunk; thermals are
-     *          unchanged at steady state and the trade is slightly softer throttle
-     *          response. stop_all() bypasses it.
+     * @brief   Max signed-duty change per service() call, split by direction: ACCEL applies
+     *          when duty magnitude is increasing (moving away from zero), DECEL when it is
+     *          decreasing (moving toward zero). With a ~20 ms control tick, ACCEL ramps the
+     *          full 0..MAX_PWM_DUTY range in ~MAX_PWM_DUTY/PWM_SLEW_STEP_ACCEL calls
+     *          (1000/100 = 10 -> ~200 ms); DECEL covers it in ~1000/150 = ~7 calls (~140 ms).
+     *          Capping di/dt this way limits peak current draw, brownout risk, and the audible
+     *          reversal thunk; thermals are unchanged at steady state. DECEL faster than ACCEL
+     *          keeps stopping crisp while easing the current inrush on takeoff. stop_all()
+     *          bypasses both.
      */
-    static constexpr std::int32_t PWM_SLEW_STEP = 100;
+    static constexpr std::int32_t PWM_SLEW_STEP_ACCEL = 100;
+    static constexpr std::int32_t PWM_SLEW_STEP_DECEL = 150;
 
     void service_motor(Motor& p_motor);
     void drive_motor(const Motor& p_motor);

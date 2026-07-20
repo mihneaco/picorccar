@@ -83,12 +83,16 @@ void MotorDriver::service_motor(Motor& p_motor)
 {
     MotorState& state = p_motor.m_state;
 
-    // Advance the applied output one slew step toward the target, capped at PWM_SLEW_STEP.
+    // Advance the applied output one slew step toward the target: slow when duty magnitude
+    // grows (accel), fast when it shrinks (decel)
     const std::int32_t current_value = state.current().value();
     const std::int32_t target_value = state.target().value();
+    const bool accelerating = target_value > current_value ? current_value >= 0
+                                                           : current_value <= 0;
+    const std::int32_t slew_step = accelerating ? PWM_SLEW_STEP_ACCEL : PWM_SLEW_STEP_DECEL;
     const std::int32_t next = target_value > current_value
-                            ? std::min(current_value + PWM_SLEW_STEP, target_value)
-                            : std::max(current_value - PWM_SLEW_STEP, target_value);
+                            ? std::min(current_value + slew_step, target_value)
+                            : std::max(current_value - slew_step, target_value);
 
     // Force a zero crossing onto its own step so direction never flips under load: the motor
     // passes through Stop (and the reversal dead-time in drive_motor) before reversing.

@@ -12,7 +12,7 @@ Dual RP2350 (Pico 2 W) firmware: one drives two DC motors via TB6612FNG, the oth
 - Use `std::clamp`, `std::optional`, and other C++20 stdlib where appropriate — don't reimplement them.
 - Follow existing style in the file being edited.
 - Use doxygen style for comments. Doc Comments bigger than 2 lines should be a javadoc block comment. Comments that have no doc value should stay as // comments. Multiline comments that have no doc value should use normal /* */ block comment syntax
-- Prefer short concise comments inside cpp. Use longer comments inside headers to describe apis.
+- Use short concise comments
 
 ## Changes
 - Make the smallest correct change. Don't refactor unrelated code.
