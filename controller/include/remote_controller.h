@@ -9,19 +9,25 @@
 class RemoteController
 {
 public:
-    RemoteController(JoystickController& p_joystick_controller,
-                     CommandSender&      p_command_sender);
+    /** @brief Bind the joystick and sender to run against. */
+    RemoteController(JoystickController &p_joystick_controller,
+                     CommandSender &p_command_sender);
 
+    /** @brief Init the joystick and command sender. */
     bool init();
+    /** @brief Main loop: connect/reconnect, arm sessions, and stream joystick state. */
     void run();
 
 private:
-    void handle_joystick_sample(const JoystickController::Sample& p_sample);
-    void handle_joystick_button(const JoystickController::Sample& p_sample);
-    void handle_joystick_position(const JoystickController::Sample& p_sample);
+    /** @brief Dispatch one joystick sample to the button-hold and position handlers. */
+    void handle_joystick_sample(const JoystickController::Sample &p_sample);
+    /** @brief Track the Wi-Fi-restart button-hold gesture and trigger the restart. */
+    void handle_joystick_button(const JoystickController::Sample &p_sample);
+    /** @brief Send the joystick position if it changed or a keep-alive is due. */
+    void handle_joystick_position(const JoystickController::Sample &p_sample);
 
-    JoystickController& m_joystick_controller;
-    CommandSender& m_command_sender;
+    JoystickController &m_joystick_controller;
+    CommandSender &m_command_sender;
 
     bool m_initialized{};
     bool m_session_started{};

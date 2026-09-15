@@ -8,32 +8,33 @@
 
 namespace
 {
-constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
+    constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 #ifdef PICORCCAR_DEBUG
-constexpr std::uint32_t DEBUG_PACKET_TRACE_PERIOD_MS = 500;
+    constexpr std::uint32_t DEBUG_PACKET_TRACE_PERIOD_MS = 500;
 #endif
 
-void print_packet(const CommandReceiver::ReceivedCommand& p_received_command)
-{
+    /** @brief Debug-only: trace received packets at most once per DEBUG_PACKET_TRACE_PERIOD_MS. */
+    void print_packet(const CommandReceiver::ReceivedCommand &p_received_command)
+    {
 #ifdef PICORCCAR_DEBUG
-    static std::uint32_t last_packet_trace_ms = 0;
-    if ((p_received_command.m_received_ms - last_packet_trace_ms) < DEBUG_PACKET_TRACE_PERIOD_MS)
-        return;
+        static std::uint32_t last_packet_trace_ms = 0;
+        if ((p_received_command.m_received_ms - last_packet_trace_ms) < DEBUG_PACKET_TRACE_PERIOD_MS)
+            return;
 
-    last_packet_trace_ms = p_received_command.m_received_ms;
-    LOG_TRACE("UDP packet x=%u y=%u sent_ms=%u received_ms=%u",
-              static_cast<unsigned>(p_received_command.m_ctrl_state.m_x_axis),
-              static_cast<unsigned>(p_received_command.m_ctrl_state.m_y_axis),
-              static_cast<unsigned>(p_received_command.m_sent_ms),
-              static_cast<unsigned>(p_received_command.m_received_ms));
+        last_packet_trace_ms = p_received_command.m_received_ms;
+        LOG_TRACE("UDP packet x=%u y=%u sent_ms=%u received_ms=%u",
+                  static_cast<unsigned>(p_received_command.m_ctrl_state.m_x_axis),
+                  static_cast<unsigned>(p_received_command.m_ctrl_state.m_y_axis),
+                  static_cast<unsigned>(p_received_command.m_sent_ms),
+                  static_cast<unsigned>(p_received_command.m_received_ms));
 #else
-    (void)p_received_command;
+        (void)p_received_command;
 #endif
-}
+    }
 }
 
-CarController::CarController(CommandReceiver& p_command_receiver,
-                             MotorDriver& p_motor_driver,
+CarController::CarController(CommandReceiver &p_command_receiver,
+                             MotorDriver &p_motor_driver,
                              const Config p_config)
     : m_command_receiver(p_command_receiver),
       m_motor_driver(p_motor_driver),
@@ -114,7 +115,7 @@ void CarController::run()
     }
 }
 
-void CarController::set_target(const protocol::CtrlState& p_ctrl_state)
+void CarController::set_target(const protocol::CtrlState &p_ctrl_state)
 {
     const std::int32_t throttle_command = axis_to_signed_command(p_ctrl_state.m_y_axis,
                                                                  m_config.m_throttle_sign);
@@ -159,8 +160,8 @@ std::int32_t CarController::axis_to_signed_command(const std::uint16_t p_adc_val
 
     const bool is_positive = signed_delta > 0;
     const std::int32_t axis_limit = is_positive
-        ? static_cast<std::int32_t>(m_config.m_adc_max) - static_cast<std::int32_t>(m_config.m_adc_center)
-        : static_cast<std::int32_t>(m_config.m_adc_center) - static_cast<std::int32_t>(m_config.m_adc_min);
+                                        ? static_cast<std::int32_t>(m_config.m_adc_max) - static_cast<std::int32_t>(m_config.m_adc_center)
+                                        : static_cast<std::int32_t>(m_config.m_adc_center) - static_cast<std::int32_t>(m_config.m_adc_min);
     const std::int32_t usable_range = axis_limit - static_cast<std::int32_t>(m_config.m_adc_deadzone);
     if (usable_range <= 0)
         return 0;

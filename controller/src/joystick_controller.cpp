@@ -7,9 +7,9 @@
 
 namespace
 {
-constexpr bool JOYSTICK_BUTTON_PRESSED_LEVEL = false;
+    constexpr bool JOYSTICK_BUTTON_PRESSED_LEVEL = false;
 #ifdef PICORCCAR_DEBUG
-constexpr std::uint8_t DEBUG_SAMPLE_LOG_PERIOD = 50;
+    constexpr std::uint8_t DEBUG_SAMPLE_LOG_PERIOD = 50;
 #endif
 }
 
@@ -25,7 +25,8 @@ JoystickController::Sample::Sample(const bool p_bpressed,
 
 std::uint16_t JoystickController::Sample::max_center_offset() const
 {
-    const auto axis_offset = [] (const std::uint16_t p_value) -> std::uint16_t {
+    const auto axis_offset = [](const std::uint16_t p_value) -> std::uint16_t
+    {
         return p_value > ADC_CENTER ? p_value - ADC_CENTER
                                     : ADC_CENTER - p_value;
     };

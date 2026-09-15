@@ -66,7 +66,6 @@ bool CommandReceiver::init_wifi()
     cyw43_state.trace_flags |= CYW43_TRACE_ASYNC_EV;
 #endif
 
-    // Enable AP mode
     LOG_INFO("enabling AP mode");
     cyw43_arch_enable_ap_mode(m_access_point_ssid,
                               m_access_point_password,
@@ -76,6 +75,7 @@ bool CommandReceiver::init_wifi()
      * AP bring-up applies the chip-wide default PM2 power-save mode, same as STA mode.
      * Keep the radio awake so link dropouts can't originate from a dozing AP radio and
      * both ends are in a known PM state for range testing.
+     * Battery use remains reasonable even with it assuming the system is closed after use.
      */
     const int pm_result = cyw43_wifi_pm(&cyw43_state, CYW43_NONE_PM);
     if (pm_result != 0)
