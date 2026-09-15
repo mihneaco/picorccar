@@ -19,15 +19,15 @@
 
 namespace
 {
-constexpr std::uint32_t CONTROL_PACKET_SPACING_MS = 20;
-constexpr std::uint8_t  CONTROL_PACKET_COUNT      =  3;
+    constexpr std::uint32_t CONTROL_PACKET_SPACING_MS = 20;
+    constexpr std::uint8_t CONTROL_PACKET_COUNT = 3;
 
-constexpr std::uint32_t RECONNECT_ATTEMPT_MS = 1000;
+    constexpr std::uint32_t RECONNECT_ATTEMPT_MS = 1000;
 }
 
-CommandSender::CommandSender(const char* const p_access_point_ssid,
-                             const char* const p_access_point_password,
-                             const char* const p_remote_address,
+CommandSender::CommandSender(const char *const p_access_point_ssid,
+                             const char *const p_access_point_password,
+                             const char *const p_remote_address,
                              const std::uint16_t p_remote_port)
     : m_access_point_ssid(p_access_point_ssid),
       m_access_point_password(p_access_point_password),
@@ -108,13 +108,13 @@ bool CommandSender::init_wifi()
         LOG_WARNING("cyw43_wifi_pm(CYW43_NONE_PM) failed: %d", pm_result);
 
     /*
-     * Requires https://github.com/georgerobotics/cyw43-driver/pull/151 (branch pr-151).
+     * Requires CYW43_driver anything > commit 889e4ccc892327c5b6c1a83552811d70d84ccba0
      * Must run AFTER enable_sta_mode/ enable_ap_mode
      */
     const int roam_result = cyw43_wifi_set_roam_enabled(&cyw43_state, false);
     if (roam_result != 0)
         LOG_WARNING("cyw43_wifi_set_roam_enabled(false) failed: %d", roam_result);
-    const int interference_result = cyw43_wifi_set_interference_mode(&cyw43_state, CYW43_IFMODE_NONE);
+    const int interference_result = cyw43_wifi_set_interference_mode(&cyw43_state, CYW43_INTERFERE_NONE);
     if (interference_result != 0)
         LOG_WARNING("cyw43_wifi_set_interference_mode(NONE) failed: %d", interference_result);
 
@@ -313,7 +313,7 @@ bool CommandSender::send_wifi_restart()
     return send_packet_repeated(restart_packet);
 }
 
-bool CommandSender::send_packet_repeated(protocol::RCCarPacket& p_packet)
+bool CommandSender::send_packet_repeated(protocol::RCCarPacket &p_packet)
 {
     // Repeat one-shot control packets a few times: they are single state changes on a lossy
     // link, so unlike the streamed COM packets there is no next packet to cover a drop.
@@ -328,7 +328,7 @@ bool CommandSender::send_packet_repeated(protocol::RCCarPacket& p_packet)
     return sent_all_packets;
 }
 
-bool CommandSender::send_controller_state(const protocol::CtrlState& p_ctrl_state)
+bool CommandSender::send_controller_state(const protocol::CtrlState &p_ctrl_state)
 {
     if (!m_session_active)
     {
@@ -358,7 +358,7 @@ bool CommandSender::send_controller_state(const protocol::CtrlState& p_ctrl_stat
 
 bool CommandSender::send_packet(const protocol::RCCarPacket &p_packet)
 {
-    std::uint8_t payload[protocol::RCCAR_PACKET_SIZE] {};
+    std::uint8_t payload[protocol::RCCAR_PACKET_SIZE]{};
     payload[protocol::RCCAR_PACKET_MODE_OFFSET] = static_cast<std::uint8_t>(p_packet.m_mode);
 
     const std::uint32_t session_id_be = lwip_htonl(p_packet.m_session_id);
@@ -372,7 +372,7 @@ bool CommandSender::send_packet(const protocol::RCCarPacket &p_packet)
     return send_packet_bytes(payload, sizeof(payload));
 }
 
-bool CommandSender::send_packet_bytes(const void* const p_payload, const std::size_t p_length)
+bool CommandSender::send_packet_bytes(const void *const p_payload, const std::size_t p_length)
 {
     if (!is_connected())
     {
@@ -392,7 +392,7 @@ bool CommandSender::send_packet_bytes(const void* const p_payload, const std::si
 
     cyw43_arch_lwip_begin();
     {
-        pbuf* const packet_buffer = pbuf_alloc(PBUF_TRANSPORT, static_cast<u16_t>(p_length), PBUF_RAM);
+        pbuf *const packet_buffer = pbuf_alloc(PBUF_TRANSPORT, static_cast<u16_t>(p_length), PBUF_RAM);
         if (packet_buffer == nullptr)
         {
             send_result = ERR_MEM;

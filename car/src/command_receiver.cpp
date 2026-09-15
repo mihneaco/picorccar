@@ -14,8 +14,8 @@
 #include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
 
-CommandReceiver::CommandReceiver(const char* const p_access_point_ssid,
-                                 const char* const p_access_point_password,
+CommandReceiver::CommandReceiver(const char *const p_access_point_ssid,
+                                 const char *const p_access_point_password,
                                  const std::uint16_t p_port)
     : m_access_point_ssid(p_access_point_ssid),
       m_access_point_password(p_access_point_password),
@@ -82,13 +82,13 @@ bool CommandReceiver::init_wifi()
         LOG_WARNING("cyw43_wifi_pm(CYW43_NONE_PM) failed: %d", pm_result);
 
     /*
-     * Requires https://github.com/georgerobotics/cyw43-driver/pull/151 (branch pr-151).
+     * Requires CYW43_driver anything > commit 889e4ccc892327c5b6c1a83552811d70d84ccba0
      * Must run AFTER enable_sta_mode/ enable_ap_mode
      */
     const int roam_result = cyw43_wifi_set_roam_enabled(&cyw43_state, false);
     if (roam_result != 0)
         LOG_WARNING("cyw43_wifi_set_roam_enabled(false) failed: %d", roam_result);
-    const int interference_result = cyw43_wifi_set_interference_mode(&cyw43_state, CYW43_IFMODE_NONE);
+    const int interference_result = cyw43_wifi_set_interference_mode(&cyw43_state, CYW43_INTERFERE_NONE);
     if (interference_result != 0)
         LOG_WARNING("cyw43_wifi_set_interference_mode(NONE) failed: %d", interference_result);
 
@@ -149,21 +149,21 @@ bool CommandReceiver::init_server()
             return false;
         }
 
-        const udp_recv_fn receive_cbk = [] (void* p_arg,
-                                            udp_pcb* p_pcb,
-                                            pbuf* p_packet,
-                                            const ip_addr_t* p_remote_address,
-                                            u16_t p_remote_port)
-                                           {
-                                                (void)p_pcb;
-                                                (void)p_remote_address;
-                                                (void)p_remote_port;
-                                                auto* const this_ref = static_cast<CommandReceiver*>(p_arg);
-                                                if (this_ref != nullptr)
-                                                    this_ref->receive_callback(p_packet);
-                                                else if (p_packet != nullptr)
-                                                    pbuf_free(p_packet);
-                                           };
+        const udp_recv_fn receive_cbk = [](void *p_arg,
+                                           udp_pcb *p_pcb,
+                                           pbuf *p_packet,
+                                           const ip_addr_t *p_remote_address,
+                                           u16_t p_remote_port)
+        {
+            (void)p_pcb;
+            (void)p_remote_address;
+            (void)p_remote_port;
+            auto *const this_ref = static_cast<CommandReceiver *>(p_arg);
+            if (this_ref != nullptr)
+                this_ref->receive_callback(p_packet);
+            else if (p_packet != nullptr)
+                pbuf_free(p_packet);
+        };
         udp_recv(m_udp_pcb, receive_cbk, this);
     }
     cyw43_arch_lwip_end();
@@ -171,7 +171,7 @@ bool CommandReceiver::init_server()
     return true;
 }
 
-void CommandReceiver::receive_callback(pbuf* p_packet)
+void CommandReceiver::receive_callback(pbuf *p_packet)
 {
     if (p_packet == nullptr)
         return;
@@ -185,7 +185,7 @@ void CommandReceiver::receive_callback(pbuf* p_packet)
         return;
     }
 
-    std::uint8_t payload[protocol::RCCAR_PACKET_SIZE] {};
+    std::uint8_t payload[protocol::RCCAR_PACKET_SIZE]{};
     const u16_t copied_bytes = pbuf_copy_partial(p_packet,
                                                  payload,
                                                  static_cast<u16_t>(protocol::RCCAR_PACKET_SIZE),
@@ -225,7 +225,7 @@ void CommandReceiver::receive_callback(pbuf* p_packet)
     }
 }
 
-void CommandReceiver::handle_arm_packet(const std::uint8_t* p_payload, const std::uint32_t p_session_id)
+void CommandReceiver::handle_arm_packet(const std::uint8_t *p_payload, const std::uint32_t p_session_id)
 {
     const auto arm_flag = static_cast<protocol::RCCarPacket::ArmFlag>(
         p_payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::ARM_FLAG_OFFSET]);
@@ -241,8 +241,7 @@ void CommandReceiver::handle_arm_packet(const std::uint8_t* p_payload, const std
         // Only the controller that owns the active session may tear it down, so a stale
         // disarm from a previous session cannot drop a newer one. Motors are left to the
         // main-loop command-timeout failsafe (the controller stops streaming after disarm).
-        else if (arm_flag == protocol::RCCarPacket::ArmFlag::Disarm
-                 && p_session_id == m_active_session_id)
+        else if (arm_flag == protocol::RCCarPacket::ArmFlag::Disarm && p_session_id == m_active_session_id)
         {
             m_active_session_id = 0;
             m_session_armed = false;
@@ -252,7 +251,7 @@ void CommandReceiver::handle_arm_packet(const std::uint8_t* p_payload, const std
     critical_section_exit(&m_packet_lock);
 }
 
-void CommandReceiver::handle_com_packet(const std::uint8_t* p_payload, const std::uint32_t p_session_id)
+void CommandReceiver::handle_com_packet(const std::uint8_t *p_payload, const std::uint32_t p_session_id)
 {
     critical_section_enter_blocking(&m_packet_lock);
     const bool accept_command = m_session_armed && p_session_id == m_active_session_id;
@@ -307,7 +306,7 @@ bool CommandReceiver::consume_restart_request()
     return restart_requested;
 }
 
-bool CommandReceiver::get_packet(ReceivedCommand& p_received_command)
+bool CommandReceiver::get_packet(ReceivedCommand &p_received_command)
 {
     bool has_packet = false;
 

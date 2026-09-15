@@ -11,8 +11,9 @@ if (NOT DEFINED PICO_SDK_PATH)
         set(PICO_SDK_PATH "$ENV{HOME}/pico-sdk" CACHE PATH "Local pico-sdk checkout path")
     endif()
 endif()
+
 include(${PICO_SDK_PATH}/pico_sdk_init.cmake)
-set(MIN_PICO_SDK_VERSION "2.2.0")
+set(MIN_PICO_SDK_VERSION "2.3.1")
 if (PICO_SDK_VERSION_STRING VERSION_LESS MIN_PICO_SDK_VERSION)
     message(FATAL_ERROR
         "Unsupported Pico SDK version '${PICO_SDK_VERSION_STRING}' at '${PICO_SDK_PATH}'. "
@@ -106,3 +107,19 @@ endif()
 
 add_subdirectory(car)
 add_subdirectory(controller)
+
+# Some pico-sdk libraries (e.g. cyw43_driver) declare their .c files as
+# INTERFACE sources, which get compiled directly into whatever target links
+# them using that target's own compile options - so -Wall -Wextra
+# (picorccar_warnings) fires on vendor code under pico-sdk/lib/ too. Disable
+# warnings entirely for those files. Source file properties are scoped to the
+# directory they're set in, so this must run after add_subdirectory() and
+# target the car/controller directory scopes explicitly.
+file(GLOB_RECURSE PICORCCAR_PICO_SDK_LIB_SOURCES CONFIGURE_DEPENDS
+    "${PICO_SDK_PATH}/lib/*.c"
+    "${PICO_SDK_PATH}/lib/*.cpp"
+)
+set_source_files_properties(${PICORCCAR_PICO_SDK_LIB_SOURCES}
+    DIRECTORY car controller
+    PROPERTIES COMPILE_OPTIONS "-w"
+)
