@@ -7,26 +7,25 @@
 
 namespace pinout
 {
-    struct MotorPins
-    {
-        Pin m_in1;
-        Pin m_in2;
-        Pin m_pwm;
-    };
+struct MotorPins
+{
+    Pin m_in1;
+    Pin m_in2;
+    Pin m_pwm;
+};
 
-    struct DriverPins
-    {
-        MotorPins m_motor_a;
-        MotorPins m_motor_b;
-        Pin m_standby;
-    };
+struct DriverPins
+{
+    MotorPins m_motor_a;
+    MotorPins m_motor_b;
+    Pin m_standby;
+};
 
-    constexpr DriverPins MOTOR_DRIVER_PINS{
-        {MOTOR_A_IN1, MOTOR_A_IN2, MOTOR_A_PWM},
-        {MOTOR_B_IN1, MOTOR_B_IN2, MOTOR_B_PWM},
-        MOTOR_DRIVER_STANDBY};
+constexpr DriverPins MOTOR_DRIVER_PINS{{MOTOR_A_IN1, MOTOR_A_IN2, MOTOR_A_PWM},
+                                       {MOTOR_B_IN1, MOTOR_B_IN2, MOTOR_B_PWM},
+                                       MOTOR_DRIVER_STANDBY};
 
-}
+} // namespace pinout
 
 class MotorDriver
 {
@@ -35,14 +34,15 @@ public:
 
     /** @brief Bind driver/standby pins. Does not touch hardware; call init() for that. */
     explicit MotorDriver(const pinout::DriverPins p_pins);
-    MotorDriver(const MotorDriver &p_other) = delete;
-    MotorDriver(MotorDriver &&p_other) = delete;
-    MotorDriver &operator=(const MotorDriver &p_otherDriverPins) = delete;
-    MotorDriver &operator=(MotorDriver &&p_other) = delete;
+    MotorDriver(const MotorDriver& p_other) = delete;
+    MotorDriver(MotorDriver&& p_other) = delete;
+    MotorDriver& operator=(const MotorDriver& p_otherDriverPins) = delete;
+    MotorDriver& operator=(MotorDriver&& p_other) = delete;
 
     /** @brief Init GPIO/PWM outputs, stop both motors, then assert STBY. */
     void init();
-    /** @brief Set signed target duty per motor in [-MAX_PWM_DUTY, MAX_PWM_DUTY]; ramps toward it in service(). */
+    /** @brief Set signed target duty per motor in [-MAX_PWM_DUTY, MAX_PWM_DUTY]; ramps toward it in
+     * service(). */
     void set_target(std::int16_t p_motor_a, std::int16_t p_motor_b);
     /**
      * @brief Advance both motors one slew step toward their targets and drive the hardware.
@@ -52,7 +52,8 @@ public:
     /** @brief Assert/deassert STBY. Disabling forces stop_all() first. */
     void set_standby(bool p_enabled);
     /**
-     * @brief Immediate stop: zero both target and applied output and drive the outputs to Stop. Bypasses ramp.
+     * @brief Immediate stop: zero both target and applied output and drive the outputs to Stop.
+     * Bypasses ramp.
      */
     void stop_all();
 
@@ -65,7 +66,7 @@ private:
         Reverse
     };
     /** @brief DriveMode as a string, for logging. */
-    static constexpr const char *drive_mode_name(const DriveMode p_drive_mode)
+    static constexpr const char* drive_mode_name(const DriveMode p_drive_mode)
     {
         switch (p_drive_mode)
         {
@@ -110,12 +111,13 @@ private:
     class MotorState
     {
     public:
-        const MotorSetpoint &current() const { return m_current; }
-        const MotorSetpoint &previous() const { return m_previous; }
-        const MotorSetpoint &target() const { return m_target; }
+        const MotorSetpoint& current() const { return m_current; }
+        const MotorSetpoint& previous() const { return m_previous; }
+        const MotorSetpoint& target() const { return m_target; }
 
         void set_target(const std::int16_t p_value) { m_target = MotorSetpoint{p_value}; }
-        /** @brief Shift the applied output, keeping the prior value in m_previous for the drive path's dead-time guard. */
+        /** @brief Shift the applied output, keeping the prior value in m_previous for the drive
+         * path's dead-time guard. */
         void set_current(const std::int16_t p_value)
         {
             m_previous = m_current;
@@ -137,7 +139,7 @@ private:
 
     struct Motor
     {
-        const char *const m_name;
+        const char* const m_name;
         const pinout::MotorPins m_pins;
         MotorState m_state;
     };
@@ -149,16 +151,16 @@ private:
     /**
      * @brief   Max signed-duty change per service() call, split by direction.
      *          This limits peak current draw, brownout risk and reversal thunk
-     *          DECEL faster than ACCEL keeps stopping crisp while easing the current inrush on takeoff.
-     *          stop_all() bypasses both.
+     *          DECEL faster than ACCEL keeps stopping crisp while easing the current inrush on
+     * takeoff. stop_all() bypasses both.
      */
     static constexpr std::int32_t PWM_SLEW_STEP_ACCEL = 100;
     static constexpr std::int32_t PWM_SLEW_STEP_DECEL = 150;
 
     /** @brief Advance one motor's applied output one slew step toward its target. */
-    void service_motor(Motor &p_motor);
+    void service_motor(Motor& p_motor);
     /** @brief Write the current drive mode and PWM duty to hardware, with reversal dead-time. */
-    void drive_motor(const Motor &p_motor);
+    void drive_motor(const Motor& p_motor);
 
     Motor m_motor_a;
     Motor m_motor_b;

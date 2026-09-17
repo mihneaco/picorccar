@@ -17,8 +17,7 @@ MotorDriver::MotorSetpoint::MotorSetpoint(const std::int16_t p_value)
 }
 
 MotorDriver::MotorDriver(const pinout::DriverPins p_pins)
-    : m_motor_a{"A", p_pins.m_motor_a, {}},
-      m_motor_b{"B", p_pins.m_motor_b, {}},
+    : m_motor_a{"A", p_pins.m_motor_a, {}}, m_motor_b{"B", p_pins.m_motor_b, {}},
       m_standby(p_pins.m_standby)
 {
     LOG_DEBUG();
@@ -78,16 +77,16 @@ void MotorDriver::set_standby(const bool p_enabled)
     pico_common::write_gpio_output(m_standby, p_enabled);
 }
 
-void MotorDriver::service_motor(Motor &p_motor)
+void MotorDriver::service_motor(Motor& p_motor)
 {
-    MotorState &state = p_motor.m_state;
+    MotorState& state = p_motor.m_state;
 
     // Advance the applied output one slew step toward the target: slow when duty magnitude
     // grows (accel), fast when it shrinks (decel)
     const std::int32_t current_value = state.current().value();
     const std::int32_t target_value = state.target().value();
-    const bool accelerating = target_value > current_value ? current_value >= 0
-                                                           : current_value <= 0;
+    const bool accelerating =
+        target_value > current_value ? current_value >= 0 : current_value <= 0;
     const std::int32_t slew_step = accelerating ? PWM_SLEW_STEP_ACCEL : PWM_SLEW_STEP_DECEL;
     const std::int32_t next = target_value > current_value
                                   ? std::min(current_value + slew_step, target_value)
@@ -109,9 +108,9 @@ void MotorDriver::service_motor(Motor &p_motor)
     drive_motor(p_motor);
 }
 
-void MotorDriver::drive_motor(const Motor &p_motor)
+void MotorDriver::drive_motor(const Motor& p_motor)
 {
-    const pinout::MotorPins &pins = p_motor.m_pins;
+    const pinout::MotorPins& pins = p_motor.m_pins;
     const DriveMode previous_mode = p_motor.m_state.previous().drive_mode();
     const DriveMode drive_mode = p_motor.m_state.current().drive_mode();
     const std::uint16_t pwm_duty = p_motor.m_state.current().duty();
@@ -127,7 +126,8 @@ void MotorDriver::drive_motor(const Motor &p_motor)
     if (drive_mode != previous_mode)
     {
         pico_common::set_pwm_output_level(pins.m_pwm, 0);
-        if ((previous_mode == DriveMode::Forward && drive_mode == DriveMode::Reverse) || (previous_mode == DriveMode::Reverse && drive_mode == DriveMode::Forward))
+        if ((previous_mode == DriveMode::Forward && drive_mode == DriveMode::Reverse) ||
+            (previous_mode == DriveMode::Reverse && drive_mode == DriveMode::Forward))
             sleep_us(DIRECTION_CHANGE_DEADTIME_US);
     }
 

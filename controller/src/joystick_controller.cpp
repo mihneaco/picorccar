@@ -7,29 +7,25 @@
 
 namespace
 {
-    constexpr bool JOYSTICK_BUTTON_PRESSED_LEVEL = false;
+constexpr bool JOYSTICK_BUTTON_PRESSED_LEVEL = false;
 #ifdef PICORCCAR_DEBUG
-    constexpr std::uint8_t DEBUG_SAMPLE_LOG_PERIOD = 50;
+constexpr std::uint8_t DEBUG_SAMPLE_LOG_PERIOD = 50;
 #endif
-}
+} // namespace
 
 JoystickController::Sample::Sample(const bool p_bpressed,
                                    const std::uint16_t p_x_axis,
                                    const std::uint16_t p_y_axis)
     : m_bpressed(p_bpressed),
       // Axes are bounded to the ADC range so every consumer can rely on it.
-      m_x_axis(std::min(p_x_axis, ADC_MAX_VALUE)),
-      m_y_axis(std::min(p_y_axis, ADC_MAX_VALUE))
+      m_x_axis(std::min(p_x_axis, ADC_MAX_VALUE)), m_y_axis(std::min(p_y_axis, ADC_MAX_VALUE))
 {
 }
 
 std::uint16_t JoystickController::Sample::max_center_offset() const
 {
     const auto axis_offset = [](const std::uint16_t p_value) -> std::uint16_t
-    {
-        return p_value > ADC_CENTER ? p_value - ADC_CENTER
-                                    : ADC_CENTER - p_value;
-    };
+    { return p_value > ADC_CENTER ? p_value - ADC_CENTER : ADC_CENTER - p_value; };
     return std::max(axis_offset(m_x_axis), axis_offset(m_y_axis));
 }
 
@@ -63,9 +59,8 @@ bool JoystickController::init()
     }
 
     // Joystick button is active low
-    pico_common::init_gpio_pin(m_pins.m_bpressed,
-                               pico_common::GpioDirection::Input,
-                               pico_common::GpioPullMode::PullUp);
+    pico_common::init_gpio_pin(
+        m_pins.m_bpressed, pico_common::GpioDirection::Input, pico_common::GpioPullMode::PullUp);
 
     pico_common::init_adc();
     pico_common::init_adc_gpio_pin(m_pins.m_x_axis);

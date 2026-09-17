@@ -1,0 +1,16 @@
+BasedOnStyle: LLVM
+Standard: c++20
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+AccessModifierOffset: -4
+IndentCaseLabels: false
+SortIncludes: Never
+BreakBeforeBraces: Allman
+PointerAlignment: Left
+
+# args on new line when args dont fit on one line
+BinPackArguments: false
+BinPackParameters: false
+AlignAfterOpenBracket: Align

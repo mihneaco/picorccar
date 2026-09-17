@@ -96,9 +96,14 @@ target_include_directories(picorccar_firmware_headers
         ${CMAKE_SOURCE_DIR}/include
 )
 
+# Debian/Ubuntu mounts removable media under /media, Fedora's udisks2 under /run/media.
 if (NOT DEFINED PICO_MOUNT_PATH)
     if (DEFINED ENV{USER})
-        set(PICO_MOUNT_PATH "/media/$ENV{USER}/RP2350" CACHE PATH "Pico USB mass-storage mount path")
+        set(pico_mount_path "/media/$ENV{USER}/RP2350")
+        if (NOT EXISTS "${pico_mount_path}" AND EXISTS "/run/media/$ENV{USER}/RP2350")
+            set(pico_mount_path "/run/media/$ENV{USER}/RP2350")
+        endif()
+        set(PICO_MOUNT_PATH "${pico_mount_path}" CACHE PATH "Pico USB mass-storage mount path")
     endif()
 endif()
 if (DEFINED PICO_MOUNT_PATH)

@@ -19,27 +19,22 @@
 
 namespace
 {
-    constexpr std::uint32_t CONTROL_PACKET_SPACING_MS = 20;
-    constexpr std::uint8_t CONTROL_PACKET_COUNT = 3;
+constexpr std::uint32_t CONTROL_PACKET_SPACING_MS = 20;
+constexpr std::uint8_t CONTROL_PACKET_COUNT = 3;
 
-    constexpr std::uint32_t RECONNECT_ATTEMPT_MS = 1000;
-}
+constexpr std::uint32_t RECONNECT_ATTEMPT_MS = 1000;
+} // namespace
 
-CommandSender::CommandSender(const char *const p_access_point_ssid,
-                             const char *const p_access_point_password,
-                             const char *const p_remote_address,
+CommandSender::CommandSender(const char* const p_access_point_ssid,
+                             const char* const p_access_point_password,
+                             const char* const p_remote_address,
                              const std::uint16_t p_remote_port)
-    : m_access_point_ssid(p_access_point_ssid),
-      m_access_point_password(p_access_point_password),
-      m_remote_address_string(p_remote_address),
-      m_remote_port(p_remote_port)
+    : m_access_point_ssid(p_access_point_ssid), m_access_point_password(p_access_point_password),
+      m_remote_address_string(p_remote_address), m_remote_port(p_remote_port)
 {
 }
 
-CommandSender::~CommandSender()
-{
-    cleanup();
-}
+CommandSender::~CommandSender() { cleanup(); }
 
 bool CommandSender::init()
 {
@@ -67,9 +62,8 @@ bool CommandSender::init()
     // Kick off the join without blocking boot on it: if the car isn't up yet or the first
     // attempt fails, the main loop's connect()/is_connected() cycle will keep retrying.
     LOG_INFO("connecting to AP ssid=%s", m_access_point_ssid);
-    const int connect_result = cyw43_arch_wifi_connect_async(m_access_point_ssid,
-                                                             m_access_point_password,
-                                                             CYW43_AUTH_WPA2_AES_PSK);
+    const int connect_result = cyw43_arch_wifi_connect_async(
+        m_access_point_ssid, m_access_point_password, CYW43_AUTH_WPA2_AES_PSK);
     if (connect_result != 0)
         LOG_WARNING("Wi-Fi connect kick-off failed: %d; retrying from main loop", connect_result);
 
@@ -114,16 +108,14 @@ bool CommandSender::init_wifi()
     const int roam_result = cyw43_wifi_set_roam_enabled(&cyw43_state, false);
     if (roam_result != 0)
         LOG_WARNING("cyw43_wifi_set_roam_enabled(false) failed: %d", roam_result);
-    const int interference_result = cyw43_wifi_set_interference_mode(&cyw43_state, CYW43_INTERFERE_NONE);
+    const int interference_result =
+        cyw43_wifi_set_interference_mode(&cyw43_state, CYW43_INTERFERE_NONE);
     if (interference_result != 0)
         LOG_WARNING("cyw43_wifi_set_interference_mode(NONE) failed: %d", interference_result);
 
-    const ip4_addr_t station_address{
-        .addr = lwip_htonl(CYW43_DEFAULT_IP_STA_ADDRESS)};
-    const ip4_addr_t station_netmask{
-        .addr = lwip_htonl(CYW43_DEFAULT_IP_MASK)};
-    const ip4_addr_t station_gateway{
-        .addr = lwip_htonl(CYW43_DEFAULT_IP_STA_GATEWAY)};
+    const ip4_addr_t station_address{.addr = lwip_htonl(CYW43_DEFAULT_IP_STA_ADDRESS)};
+    const ip4_addr_t station_netmask{.addr = lwip_htonl(CYW43_DEFAULT_IP_MASK)};
+    const ip4_addr_t station_gateway{.addr = lwip_htonl(CYW43_DEFAULT_IP_STA_GATEWAY)};
     cyw43_arch_lwip_begin();
     {
         netif_set_addr(&cyw43_state.netif[CYW43_ITF_STA],
@@ -166,9 +158,8 @@ bool CommandSender::restart_wifi()
     if (!init_wifi())
         return false;
 
-    const int connect_result = cyw43_arch_wifi_connect_async(m_access_point_ssid,
-                                                             m_access_point_password,
-                                                             CYW43_AUTH_WPA2_AES_PSK);
+    const int connect_result = cyw43_arch_wifi_connect_async(
+        m_access_point_ssid, m_access_point_password, CYW43_AUTH_WPA2_AES_PSK);
     if (connect_result != 0)
         LOG_WARNING("Wi-Fi connect kick-off failed: %d; retrying from main loop", connect_result);
 
@@ -198,8 +189,11 @@ bool CommandSender::connect()
         // restarting it every RECONNECT_ATTEMPT_MS.
         if (link_status != CYW43_LINK_JOIN)
         {
-            LOG_WARNING("STA link down (status=%d), reconnecting to ssid=%s", link_status, m_access_point_ssid);
-            cyw43_arch_wifi_connect_async(m_access_point_ssid, m_access_point_password, CYW43_AUTH_WPA2_AES_PSK);
+            LOG_WARNING("STA link down (status=%d), reconnecting to ssid=%s",
+                        link_status,
+                        m_access_point_ssid);
+            cyw43_arch_wifi_connect_async(
+                m_access_point_ssid, m_access_point_password, CYW43_AUTH_WPA2_AES_PSK);
         }
         return false;
     }
@@ -313,7 +307,7 @@ bool CommandSender::send_wifi_restart()
     return send_packet_repeated(restart_packet);
 }
 
-bool CommandSender::send_packet_repeated(protocol::RCCarPacket &p_packet)
+bool CommandSender::send_packet_repeated(protocol::RCCarPacket& p_packet)
 {
     // Repeat one-shot control packets a few times: they are single state changes on a lossy
     // link, so unlike the streamed COM packets there is no next packet to cover a drop.
@@ -328,7 +322,7 @@ bool CommandSender::send_packet_repeated(protocol::RCCarPacket &p_packet)
     return sent_all_packets;
 }
 
-bool CommandSender::send_controller_state(const protocol::CtrlState &p_ctrl_state)
+bool CommandSender::send_controller_state(const protocol::CtrlState& p_ctrl_state)
 {
     if (!m_session_active)
     {
@@ -348,31 +342,39 @@ bool CommandSender::send_controller_state(const protocol::CtrlState &p_ctrl_stat
     command_packet.m_session_ms = to_ms_since_boot(get_absolute_time());
 
     const std::uint16_t x_axis_be = lwip_htons(p_ctrl_state.m_x_axis);
-    std::memcpy(&command_packet.m_payload[protocol::CTRL_STATE_X_AXIS_OFFSET], &x_axis_be, sizeof(x_axis_be));
+    std::memcpy(&command_packet.m_payload[protocol::CTRL_STATE_X_AXIS_OFFSET],
+                &x_axis_be,
+                sizeof(x_axis_be));
 
     const std::uint16_t y_axis_be = lwip_htons(p_ctrl_state.m_y_axis);
-    std::memcpy(&command_packet.m_payload[protocol::CTRL_STATE_Y_AXIS_OFFSET], &y_axis_be, sizeof(y_axis_be));
+    std::memcpy(&command_packet.m_payload[protocol::CTRL_STATE_Y_AXIS_OFFSET],
+                &y_axis_be,
+                sizeof(y_axis_be));
 
     return send_packet(command_packet);
 }
 
-bool CommandSender::send_packet(const protocol::RCCarPacket &p_packet)
+bool CommandSender::send_packet(const protocol::RCCarPacket& p_packet)
 {
     std::uint8_t payload[protocol::RCCAR_PACKET_SIZE]{};
     payload[protocol::RCCAR_PACKET_MODE_OFFSET] = static_cast<std::uint8_t>(p_packet.m_mode);
 
     const std::uint32_t session_id_be = lwip_htonl(p_packet.m_session_id);
-    std::memcpy(&payload[protocol::RCCAR_PACKET_SESSION_ID_OFFSET], &session_id_be, sizeof(session_id_be));
+    std::memcpy(
+        &payload[protocol::RCCAR_PACKET_SESSION_ID_OFFSET], &session_id_be, sizeof(session_id_be));
 
     const std::uint32_t session_ms_be = lwip_htonl(p_packet.m_session_ms);
-    std::memcpy(&payload[protocol::RCCAR_PACKET_SESSION_MS_OFFSET], &session_ms_be, sizeof(session_ms_be));
+    std::memcpy(
+        &payload[protocol::RCCAR_PACKET_SESSION_MS_OFFSET], &session_ms_be, sizeof(session_ms_be));
 
-    std::memcpy(&payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET], p_packet.m_payload, sizeof(p_packet.m_payload));
+    std::memcpy(&payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET],
+                p_packet.m_payload,
+                sizeof(p_packet.m_payload));
 
     return send_packet_bytes(payload, sizeof(payload));
 }
 
-bool CommandSender::send_packet_bytes(const void *const p_payload, const std::size_t p_length)
+bool CommandSender::send_packet_bytes(const void* const p_payload, const std::size_t p_length)
 {
     if (!is_connected())
     {
@@ -392,7 +394,8 @@ bool CommandSender::send_packet_bytes(const void *const p_payload, const std::si
 
     cyw43_arch_lwip_begin();
     {
-        pbuf *const packet_buffer = pbuf_alloc(PBUF_TRANSPORT, static_cast<u16_t>(p_length), PBUF_RAM);
+        pbuf* const packet_buffer =
+            pbuf_alloc(PBUF_TRANSPORT, static_cast<u16_t>(p_length), PBUF_RAM);
         if (packet_buffer == nullptr)
         {
             send_result = ERR_MEM;

@@ -14,11 +14,10 @@
 #include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
 
-CommandReceiver::CommandReceiver(const char *const p_access_point_ssid,
-                                 const char *const p_access_point_password,
+CommandReceiver::CommandReceiver(const char* const p_access_point_ssid,
+                                 const char* const p_access_point_password,
                                  const std::uint16_t p_port)
-    : m_access_point_ssid(p_access_point_ssid),
-      m_access_point_password(p_access_point_password),
+    : m_access_point_ssid(p_access_point_ssid), m_access_point_password(p_access_point_password),
       m_server_port(p_port)
 {
     critical_section_init(&m_packet_lock);
@@ -67,9 +66,8 @@ bool CommandReceiver::init_wifi()
 #endif
 
     LOG_INFO("enabling AP mode");
-    cyw43_arch_enable_ap_mode(m_access_point_ssid,
-                              m_access_point_password,
-                              CYW43_AUTH_WPA2_AES_PSK);
+    cyw43_arch_enable_ap_mode(
+        m_access_point_ssid, m_access_point_password, CYW43_AUTH_WPA2_AES_PSK);
 
     /*
      * AP bring-up applies the chip-wide default PM2 power-save mode, same as STA mode.
@@ -88,7 +86,8 @@ bool CommandReceiver::init_wifi()
     const int roam_result = cyw43_wifi_set_roam_enabled(&cyw43_state, false);
     if (roam_result != 0)
         LOG_WARNING("cyw43_wifi_set_roam_enabled(false) failed: %d", roam_result);
-    const int interference_result = cyw43_wifi_set_interference_mode(&cyw43_state, CYW43_INTERFERE_NONE);
+    const int interference_result =
+        cyw43_wifi_set_interference_mode(&cyw43_state, CYW43_INTERFERE_NONE);
     if (interference_result != 0)
         LOG_WARNING("cyw43_wifi_set_interference_mode(NONE) failed: %d", interference_result);
 
@@ -149,16 +148,16 @@ bool CommandReceiver::init_server()
             return false;
         }
 
-        const udp_recv_fn receive_cbk = [](void *p_arg,
-                                           udp_pcb *p_pcb,
-                                           pbuf *p_packet,
-                                           const ip_addr_t *p_remote_address,
+        const udp_recv_fn receive_cbk = [](void* p_arg,
+                                           udp_pcb* p_pcb,
+                                           pbuf* p_packet,
+                                           const ip_addr_t* p_remote_address,
                                            u16_t p_remote_port)
         {
             (void)p_pcb;
             (void)p_remote_address;
             (void)p_remote_port;
-            auto *const this_ref = static_cast<CommandReceiver *>(p_arg);
+            auto* const this_ref = static_cast<CommandReceiver*>(p_arg);
             if (this_ref != nullptr)
                 this_ref->receive_callback(p_packet);
             else if (p_packet != nullptr)
@@ -171,7 +170,7 @@ bool CommandReceiver::init_server()
     return true;
 }
 
-void CommandReceiver::receive_callback(pbuf *p_packet)
+void CommandReceiver::receive_callback(pbuf* p_packet)
 {
     if (p_packet == nullptr)
         return;
@@ -186,10 +185,8 @@ void CommandReceiver::receive_callback(pbuf *p_packet)
     }
 
     std::uint8_t payload[protocol::RCCAR_PACKET_SIZE]{};
-    const u16_t copied_bytes = pbuf_copy_partial(p_packet,
-                                                 payload,
-                                                 static_cast<u16_t>(protocol::RCCAR_PACKET_SIZE),
-                                                 0);
+    const u16_t copied_bytes =
+        pbuf_copy_partial(p_packet, payload, static_cast<u16_t>(protocol::RCCAR_PACKET_SIZE), 0);
 
     pbuf_free(p_packet);
 
@@ -201,9 +198,11 @@ void CommandReceiver::receive_callback(pbuf *p_packet)
         return;
     }
 
-    const auto mode = static_cast<protocol::RCCarPacket::Mode>(payload[protocol::RCCAR_PACKET_MODE_OFFSET]);
+    const auto mode =
+        static_cast<protocol::RCCarPacket::Mode>(payload[protocol::RCCAR_PACKET_MODE_OFFSET]);
     std::uint32_t session_id_be{};
-    std::memcpy(&session_id_be, &payload[protocol::RCCAR_PACKET_SESSION_ID_OFFSET], sizeof(session_id_be));
+    std::memcpy(
+        &session_id_be, &payload[protocol::RCCAR_PACKET_SESSION_ID_OFFSET], sizeof(session_id_be));
     const std::uint32_t session_id = lwip_ntohl(session_id_be);
 
     switch (mode)
@@ -225,7 +224,8 @@ void CommandReceiver::receive_callback(pbuf *p_packet)
     }
 }
 
-void CommandReceiver::handle_arm_packet(const std::uint8_t *p_payload, const std::uint32_t p_session_id)
+void CommandReceiver::handle_arm_packet(const std::uint8_t* p_payload,
+                                        const std::uint32_t p_session_id)
 {
     const auto arm_flag = static_cast<protocol::RCCarPacket::ArmFlag>(
         p_payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::ARM_FLAG_OFFSET]);
@@ -241,7 +241,8 @@ void CommandReceiver::handle_arm_packet(const std::uint8_t *p_payload, const std
         // Only the controller that owns the active session may tear it down, so a stale
         // disarm from a previous session cannot drop a newer one. Motors are left to the
         // main-loop command-timeout failsafe (the controller stops streaming after disarm).
-        else if (arm_flag == protocol::RCCarPacket::ArmFlag::Disarm && p_session_id == m_active_session_id)
+        else if (arm_flag == protocol::RCCarPacket::ArmFlag::Disarm &&
+                 p_session_id == m_active_session_id)
         {
             m_active_session_id = 0;
             m_session_armed = false;
@@ -251,7 +252,8 @@ void CommandReceiver::handle_arm_packet(const std::uint8_t *p_payload, const std
     critical_section_exit(&m_packet_lock);
 }
 
-void CommandReceiver::handle_com_packet(const std::uint8_t *p_payload, const std::uint32_t p_session_id)
+void CommandReceiver::handle_com_packet(const std::uint8_t* p_payload,
+                                        const std::uint32_t p_session_id)
 {
     critical_section_enter_blocking(&m_packet_lock);
     const bool accept_command = m_session_armed && p_session_id == m_active_session_id;
@@ -260,13 +262,21 @@ void CommandReceiver::handle_com_packet(const std::uint8_t *p_payload, const std
         return;
 
     std::uint32_t session_ms_be{};
-    std::memcpy(&session_ms_be, &p_payload[protocol::RCCAR_PACKET_SESSION_MS_OFFSET], sizeof(session_ms_be));
+    std::memcpy(&session_ms_be,
+                &p_payload[protocol::RCCAR_PACKET_SESSION_MS_OFFSET],
+                sizeof(session_ms_be));
 
     std::uint16_t x_axis_be{};
-    std::memcpy(&x_axis_be, &p_payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::CTRL_STATE_X_AXIS_OFFSET], sizeof(x_axis_be));
+    std::memcpy(
+        &x_axis_be,
+        &p_payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::CTRL_STATE_X_AXIS_OFFSET],
+        sizeof(x_axis_be));
 
     std::uint16_t y_axis_be{};
-    std::memcpy(&y_axis_be, &p_payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::CTRL_STATE_Y_AXIS_OFFSET], sizeof(y_axis_be));
+    std::memcpy(
+        &y_axis_be,
+        &p_payload[protocol::RCCAR_PACKET_PAYLOAD_OFFSET + protocol::CTRL_STATE_Y_AXIS_OFFSET],
+        sizeof(y_axis_be));
 
     ReceivedCommand latest_received_command{};
     latest_received_command.m_received_ms = to_ms_since_boot(get_absolute_time());
@@ -306,7 +316,7 @@ bool CommandReceiver::consume_restart_request()
     return restart_requested;
 }
 
-bool CommandReceiver::get_packet(ReceivedCommand &p_received_command)
+bool CommandReceiver::get_packet(ReceivedCommand& p_received_command)
 {
     bool has_packet = false;
 

@@ -8,37 +8,35 @@
 
 namespace
 {
-    constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
+constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 #ifdef PICORCCAR_DEBUG
-    constexpr std::uint32_t DEBUG_PACKET_TRACE_PERIOD_MS = 500;
+constexpr std::uint32_t DEBUG_PACKET_TRACE_PERIOD_MS = 500;
 #endif
 
-    /** @brief Debug-only: trace received packets at most once per DEBUG_PACKET_TRACE_PERIOD_MS. */
-    void print_packet(const CommandReceiver::ReceivedCommand &p_received_command)
-    {
+/** @brief Debug-only: trace received packets at most once per DEBUG_PACKET_TRACE_PERIOD_MS. */
+void print_packet(const CommandReceiver::ReceivedCommand& p_received_command)
+{
 #ifdef PICORCCAR_DEBUG
-        static std::uint32_t last_packet_trace_ms = 0;
-        if ((p_received_command.m_received_ms - last_packet_trace_ms) < DEBUG_PACKET_TRACE_PERIOD_MS)
-            return;
+    static std::uint32_t last_packet_trace_ms = 0;
+    if ((p_received_command.m_received_ms - last_packet_trace_ms) < DEBUG_PACKET_TRACE_PERIOD_MS)
+        return;
 
-        last_packet_trace_ms = p_received_command.m_received_ms;
-        LOG_TRACE("UDP packet x=%u y=%u sent_ms=%u received_ms=%u",
-                  static_cast<unsigned>(p_received_command.m_ctrl_state.m_x_axis),
-                  static_cast<unsigned>(p_received_command.m_ctrl_state.m_y_axis),
-                  static_cast<unsigned>(p_received_command.m_sent_ms),
-                  static_cast<unsigned>(p_received_command.m_received_ms));
+    last_packet_trace_ms = p_received_command.m_received_ms;
+    LOG_TRACE("UDP packet x=%u y=%u sent_ms=%u received_ms=%u",
+              static_cast<unsigned>(p_received_command.m_ctrl_state.m_x_axis),
+              static_cast<unsigned>(p_received_command.m_ctrl_state.m_y_axis),
+              static_cast<unsigned>(p_received_command.m_sent_ms),
+              static_cast<unsigned>(p_received_command.m_received_ms));
 #else
-        (void)p_received_command;
+    (void)p_received_command;
 #endif
-    }
 }
+} // namespace
 
-CarController::CarController(CommandReceiver &p_command_receiver,
-                             MotorDriver &p_motor_driver,
+CarController::CarController(CommandReceiver& p_command_receiver,
+                             MotorDriver& p_motor_driver,
                              const Config p_config)
-    : m_command_receiver(p_command_receiver),
-      m_motor_driver(p_motor_driver),
-      m_config(p_config)
+    : m_command_receiver(p_command_receiver), m_motor_driver(p_motor_driver), m_config(p_config)
 {
     if (m_config.m_max_pwm_duty > MotorDriver::MAX_PWM_DUTY)
         m_config.m_max_pwm_duty = MotorDriver::MAX_PWM_DUTY;
@@ -115,12 +113,12 @@ void CarController::run()
     }
 }
 
-void CarController::set_target(const protocol::CtrlState &p_ctrl_state)
+void CarController::set_target(const protocol::CtrlState& p_ctrl_state)
 {
-    const std::int32_t throttle_command = axis_to_signed_command(p_ctrl_state.m_y_axis,
-                                                                 m_config.m_throttle_sign);
-    const std::int32_t steer_command = axis_to_signed_command(p_ctrl_state.m_x_axis,
-                                                              m_config.m_steer_sign);
+    const std::int32_t throttle_command =
+        axis_to_signed_command(p_ctrl_state.m_y_axis, m_config.m_throttle_sign);
+    const std::int32_t steer_command =
+        axis_to_signed_command(p_ctrl_state.m_x_axis, m_config.m_steer_sign);
     const std::int32_t max_pwm_duty = static_cast<std::int32_t>(m_config.m_max_pwm_duty);
 
     // Scale down steer's contribution before mixing: throttle and steer are computed with
@@ -144,25 +142,25 @@ void CarController::set_target(const protocol::CtrlState &p_ctrl_state)
     m_motor_driver.set_target(motor_a_command, motor_b_command);
 }
 
-void CarController::stop()
-{
-    m_motor_driver.stop_all();
-}
+void CarController::stop() { m_motor_driver.stop_all(); }
 
 std::int32_t CarController::axis_to_signed_command(const std::uint16_t p_adc_value,
                                                    const std::int8_t p_sign) const
 {
-    const std::int32_t signed_delta = static_cast<std::int32_t>(p_adc_value) -
-                                      static_cast<std::int32_t>(m_config.m_adc_center);
+    const std::int32_t signed_delta =
+        static_cast<std::int32_t>(p_adc_value) - static_cast<std::int32_t>(m_config.m_adc_center);
     const std::int32_t abs_delta = std::abs(signed_delta);
     if (abs_delta <= static_cast<std::int32_t>(m_config.m_adc_deadzone))
         return 0;
 
     const bool is_positive = signed_delta > 0;
     const std::int32_t axis_limit = is_positive
-                                        ? static_cast<std::int32_t>(m_config.m_adc_max) - static_cast<std::int32_t>(m_config.m_adc_center)
-                                        : static_cast<std::int32_t>(m_config.m_adc_center) - static_cast<std::int32_t>(m_config.m_adc_min);
-    const std::int32_t usable_range = axis_limit - static_cast<std::int32_t>(m_config.m_adc_deadzone);
+                                        ? static_cast<std::int32_t>(m_config.m_adc_max) -
+                                              static_cast<std::int32_t>(m_config.m_adc_center)
+                                        : static_cast<std::int32_t>(m_config.m_adc_center) -
+                                              static_cast<std::int32_t>(m_config.m_adc_min);
+    const std::int32_t usable_range =
+        axis_limit - static_cast<std::int32_t>(m_config.m_adc_deadzone);
     if (usable_range <= 0)
         return 0;
 
@@ -170,7 +168,8 @@ std::int32_t CarController::axis_to_signed_command(const std::uint16_t p_adc_val
     if (max_pwm_duty <= 0)
         return 0;
 
-    const std::int32_t adjusted_delta = abs_delta - static_cast<std::int32_t>(m_config.m_adc_deadzone);
+    const std::int32_t adjusted_delta =
+        abs_delta - static_cast<std::int32_t>(m_config.m_adc_deadzone);
     const std::int32_t linear_command = (adjusted_delta * max_pwm_duty) / usable_range;
     // Expo curve: blend linear and squared normalized magnitude (50/50) so small deflections
     // still command less duty for finer low-speed control, without the pure-square curve's steep

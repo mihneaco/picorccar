@@ -7,35 +7,34 @@
 
 namespace
 {
-    constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
+constexpr std::uint32_t MAIN_LOOP_SLEEP_MS = 20;
 
-    /**
-     * @brief The Wi-Fi restart must be a deliberate gesture: the button has to be held
-     *        for WIFI_RESTART_HOLD_MS while the stick stays near center. This rejects
-     *        the accidental Z-button actuation that happens when the stick is shoved into
-     *        a corner.
-     */
-    constexpr std::uint32_t WIFI_RESTART_HOLD_MS = 500;
-    constexpr std::uint16_t WIFI_RESTART_CENTER_TOLERANCE = 512;
+/**
+ * @brief The Wi-Fi restart must be a deliberate gesture: the button has to be held
+ *        for WIFI_RESTART_HOLD_MS while the stick stays near center. This rejects
+ *        the accidental Z-button actuation that happens when the stick is shoved into
+ *        a corner.
+ */
+constexpr std::uint32_t WIFI_RESTART_HOLD_MS = 500;
+constexpr std::uint16_t WIFI_RESTART_CENTER_TOLERANCE = 512;
 
-    /**
-     * @brief Delay between commanding the car's Wi-Fi restart and bouncing our own stack,
-     *        so the RST packets drain out of the driver before it is torn down.
-     */
-    constexpr std::uint32_t LOCAL_WIFI_RESTART_DELAY_MS = 500;
+/**
+ * @brief Delay between commanding the car's Wi-Fi restart and bouncing our own stack,
+ *        so the RST packets drain out of the driver before it is torn down.
+ */
+constexpr std::uint32_t LOCAL_WIFI_RESTART_DELAY_MS = 500;
 
-    /**
-     * @brief Join watchdog deadline: a healthy join completes in ~3 s, so a link that has been
-     *        down this long is assumed stuck in the driver's internal rejoin loop and the whole
-     *        stack is restarted. Generous enough to never preempt a genuine slow join.
-     */
-    constexpr std::uint32_t WIFI_JOIN_WATCHDOG_MS = 15000;
-}
+/**
+ * @brief Join watchdog deadline: a healthy join completes in ~3 s, so a link that has been
+ *        down this long is assumed stuck in the driver's internal rejoin loop and the whole
+ *        stack is restarted. Generous enough to never preempt a genuine slow join.
+ */
+constexpr std::uint32_t WIFI_JOIN_WATCHDOG_MS = 15000;
+} // namespace
 
-RemoteController::RemoteController(JoystickController &p_joystick_controller,
-                                   CommandSender &p_command_sender)
-    : m_joystick_controller(p_joystick_controller),
-      m_command_sender(p_command_sender)
+RemoteController::RemoteController(JoystickController& p_joystick_controller,
+                                   CommandSender& p_command_sender)
+    : m_joystick_controller(p_joystick_controller), m_command_sender(p_command_sender)
 {
 }
 
@@ -91,7 +90,8 @@ void RemoteController::run()
                 LOG_INFO("Session start %s", m_session_started ? "succeeded" : "failed");
             }
 
-            if (const std::optional<JoystickController::Sample> joystick_sample = m_joystick_controller.read())
+            if (const std::optional<JoystickController::Sample> joystick_sample =
+                    m_joystick_controller.read())
                 handle_joystick_sample(*joystick_sample);
         }
         else
@@ -114,13 +114,13 @@ void RemoteController::run()
     }
 }
 
-void RemoteController::handle_joystick_sample(const JoystickController::Sample &p_sample)
+void RemoteController::handle_joystick_sample(const JoystickController::Sample& p_sample)
 {
     handle_joystick_button(p_sample);
     handle_joystick_position(p_sample);
 }
 
-void RemoteController::handle_joystick_button(const JoystickController::Sample &p_sample)
+void RemoteController::handle_joystick_button(const JoystickController::Sample& p_sample)
 {
     if (!p_sample.m_bpressed)
     {
@@ -163,19 +163,19 @@ void RemoteController::handle_joystick_button(const JoystickController::Sample &
     }
 }
 
-void RemoteController::handle_joystick_position(const JoystickController::Sample &p_sample)
+void RemoteController::handle_joystick_position(const JoystickController::Sample& p_sample)
 {
     if (!m_session_started)
         return;
 
-    const protocol::CtrlState controller_state{
-        p_sample.m_x_axis,
-        p_sample.m_y_axis};
+    const protocol::CtrlState controller_state{p_sample.m_x_axis, p_sample.m_y_axis};
     const std::uint32_t now_ms = to_ms_since_boot(get_absolute_time());
     const bool keep_alive_due =
-        m_last_sent_controller_state.has_value() && (now_ms - m_last_successful_send_ms) >= protocol::ACTIVE_TIMING.m_command_interval_ms;
+        m_last_sent_controller_state.has_value() &&
+        (now_ms - m_last_successful_send_ms) >= protocol::ACTIVE_TIMING.m_command_interval_ms;
 
-    if (!m_last_sent_controller_state.has_value() || !controller_state.is_approx_eq(*m_last_sent_controller_state) || keep_alive_due)
+    if (!m_last_sent_controller_state.has_value() ||
+        !controller_state.is_approx_eq(*m_last_sent_controller_state) || keep_alive_due)
     {
         if (m_command_sender.send_controller_state(controller_state))
         {

@@ -7,18 +7,16 @@
 
 namespace pinout
 {
-    struct JoystickControllerPins
-    {
-        Pin m_bpressed{};
-        Pin m_x_axis{};
-        Pin m_y_axis{};
-    };
+struct JoystickControllerPins
+{
+    Pin m_bpressed{};
+    Pin m_x_axis{};
+    Pin m_y_axis{};
+};
 
-    constexpr JoystickControllerPins JOYSTICK_PINS{
-        pinout::JOYSTICK_BPRESSED_GPIO,
-        pinout::JOYSTICK_X_AXIS_GPIO,
-        pinout::JOYSTICK_Y_AXIS_GPIO};
-}
+constexpr JoystickControllerPins JOYSTICK_PINS{
+    pinout::JOYSTICK_BPRESSED_GPIO, pinout::JOYSTICK_X_AXIS_GPIO, pinout::JOYSTICK_Y_AXIS_GPIO};
+} // namespace pinout
 
 class JoystickController
 {
@@ -33,7 +31,7 @@ public:
         static constexpr std::uint16_t ADC_MAX_VALUE = (1u << ADC_INPUT_BITS) - 1u;
         static constexpr std::uint16_t ADC_CENTER = (ADC_MAX_VALUE + 1) / 2;
 
-        /// Deleted so a Sample can only exist via the clamping constructor.
+        /** Deleted so a Sample can only exist via the clamping constructor. */
         Sample() = delete;
         /** @brief Clamp both axes to [0, ADC_MAX_VALUE]. */
         Sample(bool p_bpressed, std::uint16_t p_x_axis, std::uint16_t p_y_axis);
@@ -42,7 +40,7 @@ public:
         std::uint16_t m_x_axis{};
         std::uint16_t m_y_axis{};
 
-        /// @brief Largest deflection from the resting center across both axes, in ADC counts.
+        /** @brief Largest deflection from the resting center across both axes, in ADC counts. */
         std::uint16_t max_center_offset() const;
     };
 
